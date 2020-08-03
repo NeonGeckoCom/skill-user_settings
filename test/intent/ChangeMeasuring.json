@@ -1,0 +1,10 @@
+{
+  "utterance": "change measuring system to metric",
+  "intent_type": "ChangeMeasuring",
+  "intent": {
+    "Change": "change",
+    "Units": "measuring system",
+    "To": "to",
+    "MetricImperial": "metric"
+}
+}
