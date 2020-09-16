@@ -57,7 +57,7 @@ class ControlsSkill(MycroftSkill):
             self.user_config.update_yaml_file("interface", "clap_commands_enabled", False, final=False)
             self.user_config.update_yaml_file("interface", "use_hesitation", False, final=False)
             self.user_config.update_yaml_file("interface", "blink_commands_enabled", False)
-            self.bus.emit(Message('check.yml.updates'), {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"})
+            self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
             self.check_for_signal("CORE_useHesitation")
             self.check_for_signal("CLAP_active")
 
