@@ -701,7 +701,7 @@ class ControlsSkill(MycroftSkill):
     @intent_handler(IntentBuilder("Hesitation").one_of("Permit", "Deny").require("Hesitation").build())
     def handle_speak_hesitation(self, message):
         # LOG.info("In hesitation")
-        # TODO: Move to DCC? Is this a device setting or a user setting? DM
+        # TODO: This should be a user property, not a signal? DM
         if message.data.get("Permit"):
             self.speak("I will say something when I have to look up a response.", private=True)
             self.create_signal("CORE_useHesitation")
@@ -753,7 +753,7 @@ class ControlsSkill(MycroftSkill):
                     self.change_location(do_tz=False, do_loc=True, message=message)
                 else:
                     LOG.info(actions_requested)
-                    self.speak("Okay. Not doing anything.", False, private=True)
+                    self.speak_dialog("ActionNotConfirmed", private=True)
                 self.cancel_scheduled_event(f"{user}_{actions_requested[0]}")
                 return True
             elif result:
@@ -768,16 +768,20 @@ class ControlsSkill(MycroftSkill):
                 if action_requested == 'PermitAudioRecording':
                     # self.check_for_signal('CORE_keepAudioPermission', 0)
                     self.create_signal('CORE_keepAudioPermission')
-                    self.speak("Audio Recording Enabled.", False, private=True)
+                    self.speak_dialog("EnableAudioRecording", {"enable": "enabled"}, False, private=True)
+                    # self.speak("Audio Recording Enabled.", False, private=True)
                 elif action_requested == "DenyAudioRecording":
                     self.check_for_signal('CORE_keepAudioPermission')
-                    self.speak("Audio Recording Disabled.", False, private=True)
+                    self.speak_dialog("EnableAudioRecording", {"enable": "disabled"}, False, private=True)
+                    # self.speak("Audio Recording Disabled.", False, private=True)
                 elif action_requested == "PermitAudioTranscription":
                     self.create_signal('CORE_transcribeTextPermission')
-                    self.speak("Audio Transcription Enabled.", False, private=True)
+                    self.speak_dialog("EnableTranscription", {"enable": "enabled"}, False, private=True)
+                    # self.speak("Text Transcription Enabled.", False, private=True)
                 elif action_requested == "DenyAudioTranscription":
                     self.check_for_signal('CORE_transcribeTextPermission')
-                    self.speak("Audio Transcription Disabled.", False, private=True)
+                    self.speak_dialog("EnableTranscription", {"enable": "disabled"}, False, private=True)
+                    # self.speak("Audio Transcription Disabled.", False, private=True)
                 elif action_requested == "wwChange":
                     self.write_ww_change()
                 elif action_requested == "tzChange":
