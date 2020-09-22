@@ -68,11 +68,11 @@ class ControlsSkill(MycroftSkill):
 
     @intent_handler(IntentBuilder("ChangeMeasuring").require("Change").optionally("My").optionally("Time")
                     .require("Units").optionally("To").one_of("American", "Military").build())
-    def handle_time_unit_change(self, message=None, confirmed=None):
+    def handle_time_unit_change(self, message):
         # TODO: Move to dialog files DM
         self.user_config.check_for_updates()
         flac_filename = message.context["flac_filename"]
-        if message.data.get("Time") or confirmed:
+        if message.data.get("Time"):
             LOG.info(message.data.get("Military"))
             choice = 24 if message.data.get("Military") else 12 if message.data.get("American") else ""
             if not choice:
