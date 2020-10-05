@@ -1,4 +1,4 @@
-# ![](https://0000.us/klatchat/app/files/neon_images/icons/neon_paw.png)controls
+# ![](https://0000.us/klatchat/app/files/neon_images/icons/neon_paw.png)Controls
 
 # Summary
 
@@ -15,15 +15,15 @@ Neon can help you control your user preference settings via this skill.
 # How to Use
 
 You can use this skill in multiple ways: 
-* to change your system's measuring units to metrics or imperial;
-* to control if you want to hear listening confirmation sound;
-* to control the clapper process; 
-* to change the Neon's speech speed;  
-* to select custom wake words;
-* to allow and disallow transcriptions and audio recording; 
-* to set new location;
-* to change default clapper sets for home control and music;
-* to display or hide Neon's brain on startup;
+* change my units to (metric/imperial)
+* enable listening confirmation
+* (enable/disable) clap commands 
+* talk to me (faster/slower/normally) 
+* change my wakeword to "okay computer"
+* (enable/disable) (audio recording/transcriptions) 
+* change my location to (Seattle)
+* change clap commands to my (home/audio/default) set
+* show neon brain
   
   
 
