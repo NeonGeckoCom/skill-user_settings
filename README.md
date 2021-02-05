@@ -1,18 +1,18 @@
-# ![](https://0000.us/klatchat/app/files/neon_images/icons/neon_paw.png)Controls
+# <img src='https://0000.us/klatchat/app/files/neon_images/icons/neon_skill.png' card_color="#FF8600" width="50" style="vertical-align:bottom">Controls
 
-# Summary
+## Summary
 
 Have Neon help you change and control your user settings.
 
-# Requirements
+## Requirements
 
 No special required packages for this skill.
 
-# Description
+## Description
 
 Neon can help you control your user preference settings via this skill.
 
-# How to Use
+## Examples
 
 You can use this skill in multiple ways: 
 * change my units to (metric/imperial)
@@ -27,11 +27,11 @@ You can use this skill in multiple ways:
   
   
 
-# Location
+## Location
 
     ${skills}/user-settings-control.neon
 
-# Files
+## Files
     
     ${skills}/user-settings-control.neon/__init__.py
     ${skills}/user-settings-control.neon/test
@@ -81,11 +81,11 @@ You can use this skill in multiple ways:
 
   
 
-# Class Diagram
+## Class Diagram
 
 [Click here](https://0000.us/klatchat/app/files/neon_images/class_diagrams/user-settings-control.png)
 
-# Available Intents
+## Available Intents
 <details>
 <summary>Click to expand.</summary>
 <br>
@@ -250,7 +250,7 @@ You can use this skill in multiple ways:
 
 </details>  
 
-# Examples
+## Details
 
 ### Text
         Enable clap commands.
@@ -273,10 +273,10 @@ You can use this skill in multiple ways:
 
   
 
-# Contact Support
+## Contact Support
 
 Use the [link](https://neongecko.com/ContactUs) or [submit an issue on GitHub](https://help.github.com/en/articles/creating-an-issue)
 
-# Credits
+## Credits
 
 reginaneon [neongeckocom](https://neongecko.com/) Mycroft AI
