@@ -1,0 +1,30 @@
+skillMetadata:
+  sections:
+    - name: Clap Settings
+      fields:
+        - name: default_claps
+          type: dict
+          label: Default Claps
+          value: { 1: '', 2: stop, 3: toggle belkin wemo outlet, 4: cycle desk lamp }
+        - name: audio_claps
+          type: dict
+          label: Audio Claps
+          value: { 1: '', 2: pause, 3: stop, 4: skip }
+        - name: home_claps
+          type: dict
+          label: Home Control Claps
+          value: { 1: '', 2: dim desk lamp temperature to 0, 3: toggle belkin wemo outlet, 4: cycle desk lamp }
+    - name: Blink Settings
+      fields:
+        - name: default_blinks
+          type: dict
+          label: Default Blinks
+          value: { 1: '', 2: toggle desk lamp, 3: unmute microphone, 4: turn off office lamp, 5: dim office lamp to 50 }
+        - name: audio_blinks
+          type: dict
+          label: Audio Blinks
+          value: { 1: '', 2: pause, 3: stop, 4: skip }
+        - name: home_blinks
+          type: dict
+          label: Home Control Blinks
+          value: { 1: '', 2: dim desk lamp temperature to 0, 3: toggle belkin wemo outlet, 4: cycle}

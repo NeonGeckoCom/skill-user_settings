@@ -62,7 +62,8 @@ class ControlsSkill(MycroftSkill):
             self.check_for_signal("CLAP_active")
 
     def initialize(self):
-        pass
+        self.bus.on("neon.gesture", self.handle_gesture)
+
         # self.disable_intent('USC_ConfirmYes')
         # self.disable_intent('USC_ConfirmNo')
 
@@ -590,11 +591,11 @@ class ControlsSkill(MycroftSkill):
         # TODO: simplify below code DM
         if message.data.get("Clap", None):
             if self.check_for_signal('CLAP_audio', -1):
-                list_clap = self.user_info_available['clap_sets']['audio']
+                list_clap = self.preference_skill(message)['clap_sets']['audio']
             elif self.check_for_signal('CLAP_home', -1):
-                list_clap = self.user_info_available['clap_sets']['home']
+                list_clap = self.preference_skill(message)['clap_sets']['home']
             else:
-                list_clap = self.user_info_available['clap_sets']['default']
+                list_clap = self.preference_skill(message)['clap_sets']['default']
             # list_clap = options
             LOG.info(list_clap)
             if list_clap:
@@ -604,11 +605,11 @@ class ControlsSkill(MycroftSkill):
                         else LOG.info("No command")
         elif message.data.get("Blink", None):
             if self.check_for_signal('BLINK_audio', -1):
-                list_blink = self.user_info_available['blink_sets']['audio']
+                list_blink = self.preference_skill(message)['blink_sets']['audio']
             elif self.check_for_signal('BLINK_home', -1):
-                list_blink = self.user_info_available['blink_sets']['home']
+                list_blink = self.preference_skill(message)['blink_sets']['home']
             else:
-                list_blink = self.user_info_available['blink_sets']['default']
+                list_blink = self.preference_skill(message)['blink_sets']['default']
             # list_blink = options
             LOG.info(list_blink)
             if list_blink:
@@ -793,6 +794,71 @@ class ControlsSkill(MycroftSkill):
 
     def stop(self):
         self.clear_signals("USC")
+
+    def handle_gesture(self, message):
+        LOG.debug(message.data)
+        kind = message.data["kind"]
+        payload = None
+        if kind == "clap":
+            n = message.data["count"]
+            LOG.info(f"Got {n} claps!")
+            try:
+                if self.check_for_signal('CLAP_audio', -1):
+                    options = self.preference_skill(message)['audio_claps']
+                elif self.check_for_signal('CLAP_home', -1):
+                    options = self.preference_skill(message)['home_claps']
+                # elif self.check_for_signal('CLAP_cc', -1):
+                #     options = self.preference_skill(message)['clap_sets']['cc']
+                else:
+                    options = self.preference_skill(message)['default_claps']
+                LOG.info(str(options))
+                LOG.info(str(options[n]))
+                # self.emit_action(str(options[n]))
+                payload = {
+                    "utterances": [str(options[n])],
+                    "flac_filename": kind,
+                    "mobile": False,
+                    "client": "local",
+                    "cc_data": {},
+                    "nick_profiles": {}
+                }
+                # self.bus.emit(Message("recognizer_loop:utterance", payload))
+            except Exception as x:
+                LOG.info(str(x) + "- No clap command option")
+        elif kind == "blink":
+            n = message.data["count"]
+            LOG.info(f"Got {n} blinks!")
+            try:
+                if self.check_for_signal('BLINK_audio'):
+                    options = self.preference_skill(message)['audio_blinks']
+                elif self.check_for_signal('BLINK_home'):
+                    options = self.preference_skill(message)['home_blinks']
+                # elif self.check_for_signal('BLINK_cc', -1):
+                #     options = self.preference_skill(message)['blink_sets']['cc']
+                else:
+                    options = self.preference_skill(message)['default_blinks']
+                LOG.info(str(options))
+                LOG.info(str(options[n]))
+                # self.emit_action(str(options[n]))
+                payload = {
+                    "utterances": [str(options[n])],
+                    "flac_filename": kind,
+                    "mobile": False,
+                    "client": "local",
+                    "cc_data": {}
+                }
+            except Exception as x:
+                LOG.info(str(x) + "- No blink command option")
+        elif kind == "face_detection":
+            LOG.info(">>>Face Detection")
+            payload = {
+                'utterance': "look",
+                'session': "vision_event"
+            }
+            self.bus.emit(Message('recognizer_loop:wakeword', payload))
+        if payload['utterances'][0]:
+            self.bus.emit(Message("recognizer_loop:utterance", payload))
+
 
 
 def create_skill():
