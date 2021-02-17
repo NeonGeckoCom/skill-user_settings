@@ -716,7 +716,7 @@ class ControlsSkill(MycroftSkill):
     #     self.speak("I will only speak when I have a response ready.", private=True)
     #     self.check_for_signal("CORE_useHesitation")
 
-    def converse(self, utterances, lang="en-us", message=None):
+    def converse(self, message=None):
         user = self.get_utterance_user(message)
         LOG.debug(self.actions_to_confirm)
         if user in self.actions_to_confirm.keys():
