@@ -20,17 +20,19 @@
 from mycroft.util.parse import extract_number
 from adapt.intent import IntentBuilder
 # from dateutil.tz import gettz, tzlocal
-from NGI.utilities.utilHelper import LookupHelpers
+# from NGI.utilities.utilHelper import LookupHelpers
 from mycroft.messagebus.message import Message
 from mycroft.skills.core import MycroftSkill, intent_handler
 from mycroft.util import LOG
 from datetime import datetime, timedelta
+from phoneme_guesser import get_phonemes
 from time import time
 import re
 import pytz
 import tkinter as tk
 import tkinter.simpledialog as dialog_box
 # from NGI.utilities.chat_user_util import get_chat_nickname_from_filename
+from neon_utils.location_utils import *
 
 
 class ControlsSkill(MycroftSkill):
@@ -72,7 +74,7 @@ class ControlsSkill(MycroftSkill):
     def handle_time_unit_change(self, message):
         # TODO: Move to dialog files DM
         self.user_config.check_for_updates()
-        flac_filename = message.context["flac_filename"]
+        # flac_filename = message.context["flac_filename"]
         if message.data.get("Time"):
             LOG.info(message.data.get("Military"))
             choice = 24 if message.data.get("Military") else 12 if message.data.get("American") else ""
@@ -90,8 +92,10 @@ class ControlsSkill(MycroftSkill):
                 user_dict = self.build_user_dict(message)
                 user_dict['time'] = choice
                 LOG.info(user_dict)
-                self.socket_io_emit(event="update profile", kind="skill",
-                                    flac_filename=flac_filename, message=user_dict)
+                self.socket_emit_to_server("update profile", ["skill", user_dict,
+                                                              message.context["klat_data"]["request_id"]])
+                # self.socket_io_emit(event="update profile", kind="skill",
+                #                     flac_filename=flac_filename, message=user_dict)
             else:
                 self.user_config.update_yaml_file("units", "time", choice)
                 self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
@@ -110,8 +114,10 @@ class ControlsSkill(MycroftSkill):
                 user_dict = self.build_user_dict(message)
                 user_dict['measure'] = choice
                 LOG.info(user_dict)
-                self.socket_io_emit(event="update profile", kind="skill",
-                                    flac_filename=flac_filename,  message=user_dict)
+                self.socket_emit_to_server("update profile", ["skill", user_dict,
+                                                              message.context["klat_data"]["request_id"]])
+                # self.socket_io_emit(event="update profile", kind="skill",
+                #                     flac_filename=flac_filename,  message=user_dict)
             else:
                 self.user_config.update_yaml_file("units", "measure", choice)
                 self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
@@ -399,7 +405,7 @@ class ControlsSkill(MycroftSkill):
             self.user_config.update_yaml_file(header="listener", sub_header="wake_word", value=self.new_ww,
                                               multiple=True)
             self.user_config.update_yaml_file(header="listener", sub_header="phonemes",
-                                              value=LookupHelpers.get_phonemes(self.new_ww))
+                                              value=get_phonemes(self.new_ww, "en"))
             if not self.check_for_signal("CORE_skipWakeWord", -1):
                 os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
                           self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh voice")
@@ -418,8 +424,7 @@ class ControlsSkill(MycroftSkill):
                 lat = coord['lat']
                 lng = coord['lng']
             else:
-                LOG.debug(f"DM: location name lookup")
-                lat, lng = LookupHelpers.get_coordinates(self.new_loc)
+                lat, lng = get_coordinates(self.new_loc)
                 LOG.debug(f"DM: location: lat/lng={lat}, {lng}")
                 if self.new_loc and not (lat == -1 and lng == -1):
                     self.long_lat_dict[self.new_loc] = {'lat': lat, 'lng': lng}
@@ -427,7 +432,7 @@ class ControlsSkill(MycroftSkill):
             LOG.debug(f"DM: lat/lng={lat},{lng}, do_tz/do_loc={do_tz},{do_loc}")
 
             if do_tz:
-                timezone, offset = LookupHelpers.get_timezone(lat, lng)
+                timezone, offset = get_timezone(lat, lng)
                 LOG.debug(f"timezone={timezone} offset={offset}")
             if do_loc:
                 if f"{lat}, {lng}" in self.location_dict:
@@ -439,7 +444,7 @@ class ControlsSkill(MycroftSkill):
                     LOG.debug(f"DM: cache time={time() - start_time}")
                 else:
                     LOG.debug("DM: Lookup location from coords")
-                    city, county, state, country = LookupHelpers.get_location(lat, lng)
+                    city, county, state, country = get_location(lat, lng)
                     if not city:
                         city = self.new_loc.split()[0].title()
                     LOG.debug(f"{city}, {county}, {state}, {country}")
@@ -458,7 +463,7 @@ class ControlsSkill(MycroftSkill):
 
         if self.server:
             self.speak("I am updating your user profile.", private=True)
-            flac_filename = message.context["flac_filename"]
+            # flac_filename = message.context["flac_filename"]
             user_dict = self.build_user_dict(message)
             user_dict['lat'] = lat
             user_dict['lng'] = lng
@@ -472,8 +477,10 @@ class ControlsSkill(MycroftSkill):
                 user_dict['tz'] = timezone
                 user_dict['utc'] = offset
             LOG.info("user_dict: " + str(user_dict))
-            self.socket_io_emit(event="update profile", kind="skill",
-                                flac_filename=flac_filename, message=user_dict)
+            self.socket_emit_to_server("update profile", ["skill", user_dict,
+                                                          message.context["klat_data"]["request_id"]])
+            # self.socket_io_emit(event="update profile", kind="skill",
+            #                     flac_filename=flac_filename, message=user_dict)
         # self.socket_io_emit(event="location update", message={'lat': lat,
         #                                                       'lng': lng,
         #                                                       'city': city,
@@ -816,7 +823,7 @@ class ControlsSkill(MycroftSkill):
                 # self.emit_action(str(options[n]))
                 payload = {
                     "utterances": [str(options[n])],
-                    "flac_filename": kind,
+                    # "flac_filename": kind,
                     "mobile": False,
                     "client": "local",
                     "cc_data": {},
@@ -842,7 +849,7 @@ class ControlsSkill(MycroftSkill):
                 # self.emit_action(str(options[n]))
                 payload = {
                     "utterances": [str(options[n])],
-                    "flac_filename": kind,
+                    # "flac_filename": kind,
                     "mobile": False,
                     "client": "local",
                     "cc_data": {}
