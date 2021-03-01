@@ -598,11 +598,11 @@ class ControlsSkill(MycroftSkill):
         # TODO: simplify below code DM
         if message.data.get("Clap", None):
             if self.check_for_signal('CLAP_audio', -1):
-                list_clap = self.preference_skill(message)['clap_sets']['audio']
+                list_clap = self.preference_skill(message)['audio_claps']
             elif self.check_for_signal('CLAP_home', -1):
-                list_clap = self.preference_skill(message)['clap_sets']['home']
+                list_clap = self.preference_skill(message)['home_claps']
             else:
-                list_clap = self.preference_skill(message)['clap_sets']['default']
+                list_clap = self.preference_skill(message)['default_claps']
             # list_clap = options
             LOG.info(list_clap)
             if list_clap:
@@ -612,11 +612,11 @@ class ControlsSkill(MycroftSkill):
                         else LOG.info("No command")
         elif message.data.get("Blink", None):
             if self.check_for_signal('BLINK_audio', -1):
-                list_blink = self.preference_skill(message)['blink_sets']['audio']
+                list_blink = self.preference_skill(message)['audio_claps']
             elif self.check_for_signal('BLINK_home', -1):
-                list_blink = self.preference_skill(message)['blink_sets']['home']
+                list_blink = self.preference_skill(message)['home_claps']
             else:
-                list_blink = self.preference_skill(message)['blink_sets']['default']
+                list_blink = self.preference_skill(message)['default_claps']
             # list_blink = options
             LOG.info(list_blink)
             if list_blink:
