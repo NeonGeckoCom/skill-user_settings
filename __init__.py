@@ -17,25 +17,25 @@
 # US Patents 2008-2021: US7424516, US20140161250, US20140177813, US8638908, US8068604, US8553852, US10530923, US10530924
 # China Patent: CN102017585  -  Europe Patent: EU2156652  -  Patents Pending
 
-from mycroft.util.parse import extract_number
-from adapt.intent import IntentBuilder
-# from dateutil.tz import gettz, tzlocal
-# from NGI.utilities.utilHelper import LookupHelpers
-from mycroft.messagebus.message import Message
-from mycroft.skills.core import MycroftSkill, intent_handler
-from mycroft.util import LOG
-from datetime import datetime, timedelta
-from phoneme_guesser import get_phonemes
-from time import time
 import re
 import pytz
 import tkinter as tk
 import tkinter.simpledialog as dialog_box
+
+from mycroft.util.parse import extract_number
+from adapt.intent import IntentBuilder
+from mycroft.messagebus.message import Message
+from mycroft.skills.core import intent_handler
+from datetime import timedelta
+from phoneme_guesser import get_phonemes
+from time import time
+from neon_utils.skills.neon_skill import NeonSkill, LOG
+
 # from NGI.utilities.chat_user_util import get_chat_nickname_from_filename
 from neon_utils.location_utils import *
 
 
-class ControlsSkill(MycroftSkill):
+class ControlsSkill(NeonSkill):
     """
     Skill to interact with user-specific settings
     """
