@@ -1,0 +1,2 @@
+phoneme_guesser
+git+https://github.com/NeonGeckoCom/neon-skill-utils

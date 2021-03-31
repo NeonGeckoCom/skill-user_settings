@@ -1,6 +1,6 @@
 # NEON AI (TM) SOFTWARE, Software Development Kit & Application Development System
 #
-# Copyright 2008-2020 Neongecko.com Inc. | All Rights Reserved
+# Copyright 2008-2021 Neongecko.com Inc. | All Rights Reserved
 #
 # Notice of License - Duplicating this Notice of License near the start of any file containing
 # a derivative of this software is a condition of license for this software.
@@ -14,23 +14,25 @@
 # Authors: Guy Daniels, Daniel McKnight, Regina Bloomstine, Elon Gasper, Richard Leeds
 #
 # Specialized conversational reconveyance options from Conversation Processing Intelligence Corp.
-# US Patents 2008-2020: US7424516, US20140161250, US20140177813, US8638908, US8068604, US8553852, US10530923, US10530924
+# US Patents 2008-2021: US7424516, US20140161250, US20140177813, US8638908, US8068604, US8553852, US10530923, US10530924
 # China Patent: CN102017585  -  Europe Patent: EU2156652  -  Patents Pending
 
 from mycroft.util.parse import extract_number
 from adapt.intent import IntentBuilder
 # from dateutil.tz import gettz, tzlocal
-from NGI.utilities.utilHelper import LookupHelpers
+# from NGI.utilities.utilHelper import LookupHelpers
 from mycroft.messagebus.message import Message
 from mycroft.skills.core import MycroftSkill, intent_handler
 from mycroft.util import LOG
 from datetime import datetime, timedelta
+from phoneme_guesser import get_phonemes
 from time import time
 import re
 import pytz
 import tkinter as tk
 import tkinter.simpledialog as dialog_box
 # from NGI.utilities.chat_user_util import get_chat_nickname_from_filename
+from neon_utils.location_utils import *
 
 
 class ControlsSkill(MycroftSkill):
@@ -62,7 +64,8 @@ class ControlsSkill(MycroftSkill):
             self.check_for_signal("CLAP_active")
 
     def initialize(self):
-        pass
+        self.bus.on("neon.gesture", self.handle_gesture)
+
         # self.disable_intent('USC_ConfirmYes')
         # self.disable_intent('USC_ConfirmNo')
 
@@ -71,7 +74,7 @@ class ControlsSkill(MycroftSkill):
     def handle_time_unit_change(self, message):
         # TODO: Move to dialog files DM
         self.user_config.check_for_updates()
-        flac_filename = message.context["flac_filename"]
+        # flac_filename = message.context["flac_filename"]
         if message.data.get("Time"):
             LOG.info(message.data.get("Military"))
             choice = 24 if message.data.get("Military") else 12 if message.data.get("American") else ""
@@ -89,8 +92,10 @@ class ControlsSkill(MycroftSkill):
                 user_dict = self.build_user_dict(message)
                 user_dict['time'] = choice
                 LOG.info(user_dict)
-                self.socket_io_emit(event="update profile", kind="skill",
-                                    flac_filename=flac_filename, message=user_dict)
+                self.socket_emit_to_server("update profile", ["skill", user_dict,
+                                                              message.context["klat_data"]["request_id"]])
+                # self.socket_io_emit(event="update profile", kind="skill",
+                #                     flac_filename=flac_filename, message=user_dict)
             else:
                 self.user_config.update_yaml_file("units", "time", choice)
                 self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
@@ -109,8 +114,10 @@ class ControlsSkill(MycroftSkill):
                 user_dict = self.build_user_dict(message)
                 user_dict['measure'] = choice
                 LOG.info(user_dict)
-                self.socket_io_emit(event="update profile", kind="skill",
-                                    flac_filename=flac_filename,  message=user_dict)
+                self.socket_emit_to_server("update profile", ["skill", user_dict,
+                                                              message.context["klat_data"]["request_id"]])
+                # self.socket_io_emit(event="update profile", kind="skill",
+                #                     flac_filename=flac_filename,  message=user_dict)
             else:
                 self.user_config.update_yaml_file("units", "measure", choice)
                 self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
@@ -398,7 +405,7 @@ class ControlsSkill(MycroftSkill):
             self.user_config.update_yaml_file(header="listener", sub_header="wake_word", value=self.new_ww,
                                               multiple=True)
             self.user_config.update_yaml_file(header="listener", sub_header="phonemes",
-                                              value=LookupHelpers.get_phonemes(self.new_ww))
+                                              value=get_phonemes(self.new_ww, "en"))
             if not self.check_for_signal("CORE_skipWakeWord", -1):
                 os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
                           self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh voice")
@@ -417,8 +424,7 @@ class ControlsSkill(MycroftSkill):
                 lat = coord['lat']
                 lng = coord['lng']
             else:
-                LOG.debug(f"DM: location name lookup")
-                lat, lng = LookupHelpers.get_coordinates(self.new_loc)
+                lat, lng = get_coordinates(self.new_loc)
                 LOG.debug(f"DM: location: lat/lng={lat}, {lng}")
                 if self.new_loc and not (lat == -1 and lng == -1):
                     self.long_lat_dict[self.new_loc] = {'lat': lat, 'lng': lng}
@@ -426,7 +432,7 @@ class ControlsSkill(MycroftSkill):
             LOG.debug(f"DM: lat/lng={lat},{lng}, do_tz/do_loc={do_tz},{do_loc}")
 
             if do_tz:
-                timezone, offset = LookupHelpers.get_timezone(lat, lng)
+                timezone, offset = get_timezone(lat, lng)
                 LOG.debug(f"timezone={timezone} offset={offset}")
             if do_loc:
                 if f"{lat}, {lng}" in self.location_dict:
@@ -438,7 +444,7 @@ class ControlsSkill(MycroftSkill):
                     LOG.debug(f"DM: cache time={time() - start_time}")
                 else:
                     LOG.debug("DM: Lookup location from coords")
-                    city, county, state, country = LookupHelpers.get_location(lat, lng)
+                    city, county, state, country = get_location(lat, lng)
                     if not city:
                         city = self.new_loc.split()[0].title()
                     LOG.debug(f"{city}, {county}, {state}, {country}")
@@ -457,7 +463,7 @@ class ControlsSkill(MycroftSkill):
 
         if self.server:
             self.speak("I am updating your user profile.", private=True)
-            flac_filename = message.context["flac_filename"]
+            # flac_filename = message.context["flac_filename"]
             user_dict = self.build_user_dict(message)
             user_dict['lat'] = lat
             user_dict['lng'] = lng
@@ -471,8 +477,10 @@ class ControlsSkill(MycroftSkill):
                 user_dict['tz'] = timezone
                 user_dict['utc'] = offset
             LOG.info("user_dict: " + str(user_dict))
-            self.socket_io_emit(event="update profile", kind="skill",
-                                flac_filename=flac_filename, message=user_dict)
+            self.socket_emit_to_server("update profile", ["skill", user_dict,
+                                                          message.context["klat_data"]["request_id"]])
+            # self.socket_io_emit(event="update profile", kind="skill",
+            #                     flac_filename=flac_filename, message=user_dict)
         # self.socket_io_emit(event="location update", message={'lat': lat,
         #                                                       'lng': lng,
         #                                                       'city': city,
@@ -590,11 +598,11 @@ class ControlsSkill(MycroftSkill):
         # TODO: simplify below code DM
         if message.data.get("Clap", None):
             if self.check_for_signal('CLAP_audio', -1):
-                list_clap = self.user_info_available['clap_sets']['audio']
+                list_clap = self.preference_skill(message)['audio_claps']
             elif self.check_for_signal('CLAP_home', -1):
-                list_clap = self.user_info_available['clap_sets']['home']
+                list_clap = self.preference_skill(message)['home_claps']
             else:
-                list_clap = self.user_info_available['clap_sets']['default']
+                list_clap = self.preference_skill(message)['default_claps']
             # list_clap = options
             LOG.info(list_clap)
             if list_clap:
@@ -604,11 +612,11 @@ class ControlsSkill(MycroftSkill):
                         else LOG.info("No command")
         elif message.data.get("Blink", None):
             if self.check_for_signal('BLINK_audio', -1):
-                list_blink = self.user_info_available['blink_sets']['audio']
+                list_blink = self.preference_skill(message)['audio_claps']
             elif self.check_for_signal('BLINK_home', -1):
-                list_blink = self.user_info_available['blink_sets']['home']
+                list_blink = self.preference_skill(message)['home_claps']
             else:
-                list_blink = self.user_info_available['blink_sets']['default']
+                list_blink = self.preference_skill(message)['default_claps']
             # list_blink = options
             LOG.info(list_blink)
             if list_blink:
@@ -715,7 +723,7 @@ class ControlsSkill(MycroftSkill):
     #     self.speak("I will only speak when I have a response ready.", private=True)
     #     self.check_for_signal("CORE_useHesitation")
 
-    def converse(self, utterances, lang="en-us", message=None):
+    def converse(self, message=None):
         user = self.get_utterance_user(message)
         LOG.debug(self.actions_to_confirm)
         if user in self.actions_to_confirm.keys():
@@ -793,6 +801,71 @@ class ControlsSkill(MycroftSkill):
 
     def stop(self):
         self.clear_signals("USC")
+
+    def handle_gesture(self, message):
+        LOG.debug(message.data)
+        kind = message.data["kind"]
+        payload = None
+        if kind == "clap":
+            n = message.data["count"]
+            LOG.info(f"Got {n} claps!")
+            try:
+                if self.check_for_signal('CLAP_audio', -1):
+                    options = self.preference_skill(message)['audio_claps']
+                elif self.check_for_signal('CLAP_home', -1):
+                    options = self.preference_skill(message)['home_claps']
+                # elif self.check_for_signal('CLAP_cc', -1):
+                #     options = self.preference_skill(message)['clap_sets']['cc']
+                else:
+                    options = self.preference_skill(message)['default_claps']
+                LOG.info(str(options))
+                LOG.info(str(options[n]))
+                # self.emit_action(str(options[n]))
+                payload = {
+                    "utterances": [str(options[n])],
+                    # "flac_filename": kind,
+                    "mobile": False,
+                    "client": "local",
+                    "cc_data": {},
+                    "nick_profiles": {}
+                }
+                # self.bus.emit(Message("recognizer_loop:utterance", payload))
+            except Exception as x:
+                LOG.info(str(x) + "- No clap command option")
+        elif kind == "blink":
+            n = message.data["count"]
+            LOG.info(f"Got {n} blinks!")
+            try:
+                if self.check_for_signal('BLINK_audio'):
+                    options = self.preference_skill(message)['audio_blinks']
+                elif self.check_for_signal('BLINK_home'):
+                    options = self.preference_skill(message)['home_blinks']
+                # elif self.check_for_signal('BLINK_cc', -1):
+                #     options = self.preference_skill(message)['blink_sets']['cc']
+                else:
+                    options = self.preference_skill(message)['default_blinks']
+                LOG.info(str(options))
+                LOG.info(str(options[n]))
+                # self.emit_action(str(options[n]))
+                payload = {
+                    "utterances": [str(options[n])],
+                    # "flac_filename": kind,
+                    "mobile": False,
+                    "client": "local",
+                    "cc_data": {}
+                }
+            except Exception as x:
+                LOG.info(str(x) + "- No blink command option")
+        elif kind == "face_detection":
+            LOG.info(">>>Face Detection")
+            payload = {
+                'utterance': "look",
+                'session': "vision_event"
+            }
+            self.bus.emit(Message('recognizer_loop:wakeword', payload))
+        if payload['utterances'][0]:
+            self.bus.emit(Message("recognizer_loop:utterance", payload))
+
 
 
 def create_skill():
