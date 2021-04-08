@@ -48,18 +48,18 @@ class ControlsSkill(NeonSkill):
         self.new_loc = ""
         # Read clap/blink settings
         try:
-            self.create_signal("CLAP_active") if self.user_info_available['interface']['clap_commands_enabled'] \
+            self.create_signal("CLAP_active") if self.local_config.get('interface', {}).get('clap_commands_enabled') \
                 else self.check_for_signal("CLAP_active")
-            self.create_signal("BLINK_active") if self.user_info_available['interface']['blink_commands_enabled'] \
+            self.create_signal("BLINK_active") if self.local_config.get('interface', {}).get('blink_commands_enabled') \
                 else self.check_for_signal("BLINK_active")
-            self.create_signal("CORE_useHesitation") if self.user_info_available['interface']['use_hesitation'] \
+            self.create_signal("CORE_useHesitation") if self.local_config['interface']['use_hesitation'] \
                 else self.check_for_signal("CORE_useHesitation")
         except KeyError:
             # self.create_signal("NGI_YAML_user_update")
             self.user_config.update_yaml_file("interface", "clap_commands_enabled", False, final=False)
             self.user_config.update_yaml_file("interface", "use_hesitation", False, final=False)
             self.user_config.update_yaml_file("interface", "blink_commands_enabled", False)
-            self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
+            # self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
             self.check_for_signal("CORE_useHesitation")
             self.check_for_signal("CLAP_active")
 
@@ -277,6 +277,7 @@ class ControlsSkill(NeonSkill):
             self.speak(f"Adjusting blink threshold to {0.3*new_val}")
             self.user_config.update_yaml_file("interface", "blink_scalar", new_val)
             self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
+            # TODO: Better method to restart vision
             os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
                       self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh vision")
 
@@ -407,6 +408,7 @@ class ControlsSkill(NeonSkill):
             self.user_config.update_yaml_file(header="listener", sub_header="phonemes",
                                               value=get_phonemes(self.new_ww, "en"))
             if not self.check_for_signal("CORE_skipWakeWord", -1):
+                # TODO: Better method to restart voice DM
                 os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
                           self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh voice")
             self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
@@ -545,6 +547,7 @@ class ControlsSkill(NeonSkill):
         self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
 
         if not self.check_for_signal("CORE_skipWakeWord", -1):
+            # TODO: Better method to restart voice DM
             os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
                       self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh voice")
 
