@@ -397,7 +397,7 @@ class ControlsSkill(NeonSkill):
             # self.handle_wait()
 
     def write_ww_change(self):
-        import os
+        # import os
         # self.speak("Alright. I'll respond to '{}' from now on".format(self.new_ww), private=True)
         self.speak_dialog("NewWakeWord", {"ww": self.new_ww}, private=True)
 
@@ -410,11 +410,11 @@ class ControlsSkill(NeonSkill):
                                               multiple=True)
             self.user_config.update_yaml_file(header="listener", sub_header="phonemes",
                                               value=get_phonemes(self.new_ww, "en"))
-            if not self.check_for_signal("CORE_skipWakeWord", -1):
-                # TODO: Better method to restart voice DM
-                os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
-                          self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh voice")
-            self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
+            # if not self.check_for_signal("CORE_skipWakeWord", -1):
+            #     # TODO: Better method to restart voice DM
+            #     os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
+            #               self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh voice")
+            # self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
 
     def change_location(self, do_tz=False, do_loc=False, message=None):
         start_time = time()
