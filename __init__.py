@@ -236,8 +236,8 @@ class ControlsSkill(NeonSkill):
 
         LOG.debug(message.data)
         # blink_scalar should be constrained ~[0.3-1.2]
-        current = float(self.user_info_available["interface"].get("blink_scalar", 1.0))
-        req_val = extract_number(message.context["cc_data"].get("raw_utterance"))
+        current = float(self.user_info_available.get("interface", {}).get("blink_scalar", 1.0))
+        req_val = extract_number(message.data.get("utterance"))
         min_multiplier, max_multiplier = (0.3, 1.3)
         if req_val:
             LOG.debug(req_val)
@@ -558,14 +558,14 @@ class ControlsSkill(NeonSkill):
     def handle_speak_faster(self, message):
         self.user_config.check_for_updates()
         if "slower" in message.data.get("Speed"):
-            speed = (float(self.user_info_available['speech']['speed_multiplier']) * 0.9)
+            speed = (float(self.preference_speech(message).get('speed_multiplier', 1.0)) * 0.9)
             if speed < 0.7:
                 speed = 0.7
                 phrase = "I cannot talk any slower."
             else:
                 phrase = "I will talk slower."
         elif "faster" in message.data.get("Speed"):
-            speed = (float(self.user_info_available['speech']['speed_multiplier']) / 0.9)
+            speed = (float(self.preference_speech(message).get('speed_multiplier', 1.0)) / 0.9)
             if speed > 1.5:
                 speed = 1.5
                 phrase = "I cannot talk any faster."
