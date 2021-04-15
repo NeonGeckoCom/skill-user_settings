@@ -17,25 +17,25 @@
 # US Patents 2008-2021: US7424516, US20140161250, US20140177813, US8638908, US8068604, US8553852, US10530923, US10530924
 # China Patent: CN102017585  -  Europe Patent: EU2156652  -  Patents Pending
 
-from mycroft.util.parse import extract_number
-from adapt.intent import IntentBuilder
-# from dateutil.tz import gettz, tzlocal
-# from NGI.utilities.utilHelper import LookupHelpers
-from mycroft.messagebus.message import Message
-from mycroft.skills.core import MycroftSkill, intent_handler
-from mycroft.util import LOG
-from datetime import datetime, timedelta
-from phoneme_guesser import get_phonemes
-from time import time
 import re
 import pytz
 import tkinter as tk
 import tkinter.simpledialog as dialog_box
+
+from mycroft.util.parse import extract_number
+from adapt.intent import IntentBuilder
+from mycroft_bus_client import Message
+from mycroft.skills.core import intent_handler
+from datetime import timedelta
+from phoneme_guesser import get_phonemes
+from time import time
+from neon_utils.skills.neon_skill import NeonSkill  # , LOG
+
 # from NGI.utilities.chat_user_util import get_chat_nickname_from_filename
 from neon_utils.location_utils import *
 
 
-class ControlsSkill(MycroftSkill):
+class ControlsSkill(NeonSkill):
     """
     Skill to interact with user-specific settings
     """
@@ -46,20 +46,22 @@ class ControlsSkill(MycroftSkill):
         # self.clear_wait(True)
         self.new_ww = ""
         self.new_loc = ""
+        self.long_lat_dict = {}
+        self.location_dict = {}
         # Read clap/blink settings
         try:
-            self.create_signal("CLAP_active") if self.user_info_available['interface']['clap_commands_enabled'] \
+            self.create_signal("CLAP_active") if self.local_config.get('interface', {}).get('clap_commands_enabled') \
                 else self.check_for_signal("CLAP_active")
-            self.create_signal("BLINK_active") if self.user_info_available['interface']['blink_commands_enabled'] \
+            self.create_signal("BLINK_active") if self.local_config.get('interface', {}).get('blink_commands_enabled') \
                 else self.check_for_signal("BLINK_active")
-            self.create_signal("CORE_useHesitation") if self.user_info_available['interface']['use_hesitation'] \
+            self.create_signal("CORE_useHesitation") if self.local_config['interface']['use_hesitation'] \
                 else self.check_for_signal("CORE_useHesitation")
         except KeyError:
             # self.create_signal("NGI_YAML_user_update")
             self.user_config.update_yaml_file("interface", "clap_commands_enabled", False, final=False)
             self.user_config.update_yaml_file("interface", "use_hesitation", False, final=False)
             self.user_config.update_yaml_file("interface", "blink_commands_enabled", False)
-            self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
+            # self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
             self.check_for_signal("CORE_useHesitation")
             self.check_for_signal("CLAP_active")
 
@@ -73,7 +75,7 @@ class ControlsSkill(MycroftSkill):
                     .require("Units").optionally("To").one_of("American", "Military").build())
     def handle_time_unit_change(self, message):
         # TODO: Move to dialog files DM
-        self.user_config.check_for_updates()
+        # self.user_config.check_for_updates()
         # flac_filename = message.context["flac_filename"]
         if message.data.get("Time"):
             LOG.info(message.data.get("Military"))
@@ -98,7 +100,8 @@ class ControlsSkill(MycroftSkill):
                 #                     flac_filename=flac_filename, message=user_dict)
             else:
                 self.user_config.update_yaml_file("units", "time", choice)
-                self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
+                self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]},
+                                      {"origin": "controls.neon"}))
         else:
             choice = "metric" if message.data.get("Military") else "imperial" \
                 if message.data.get("American") else ""
@@ -120,7 +123,8 @@ class ControlsSkill(MycroftSkill):
                 #                     flac_filename=flac_filename,  message=user_dict)
             else:
                 self.user_config.update_yaml_file("units", "measure", choice)
-                self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
+                # self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]},
+                #                       {"origin": "controls.neon"}))
         # self.create_signal("NGI_YAML_user_update")
         # self.user_config._update_yaml_file(header="units", sub_header="time", value=choice)
 
@@ -197,7 +201,8 @@ class ControlsSkill(MycroftSkill):
                     if state == "enabled" else \
                     self.user_config.update_yaml_file("interface", to_modify, False)
                 self.speak_dialog("StartupSetting", {"kind": speakable, "enable": state})
-                self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
+                # self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]},
+                #                       {"origin": "controls.neon"}))
                 # self.speak("Changing the clapper settings to your preference", private=True)
             # else:
             #     self.create_signal("CLAP_active") if message.data.get("Permit") and not \
@@ -231,8 +236,8 @@ class ControlsSkill(MycroftSkill):
 
         LOG.debug(message.data)
         # blink_scalar should be constrained ~[0.3-1.2]
-        current = float(self.user_info_available["interface"].get("blink_scalar", 1.0))
-        req_val = extract_number(message.context["cc_data"].get("raw_utterance"))
+        current = float(self.user_info_available.get("interface", {}).get("blink_scalar", 1.0))
+        req_val = extract_number(message.data.get("utterance"))
         min_multiplier, max_multiplier = (0.3, 1.3)
         if req_val:
             LOG.debug(req_val)
@@ -276,11 +281,10 @@ class ControlsSkill(MycroftSkill):
         else:
             self.speak(f"Adjusting blink threshold to {0.3*new_val}")
             self.user_config.update_yaml_file("interface", "blink_scalar", new_val)
-            self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
-            os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
-                      self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh vision")
-
-    # TODO: Intent to enable/disable blink preview
+            # self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
+            # TODO: restart vision service
+            # os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
+            #           self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh vision")
 
     @intent_handler(IntentBuilder("CallYou").require("CallYou").build())
     def handle_name_change(self, message):
@@ -393,7 +397,7 @@ class ControlsSkill(MycroftSkill):
             # self.handle_wait()
 
     def write_ww_change(self):
-        import os
+        # import os
         # self.speak("Alright. I'll respond to '{}' from now on".format(self.new_ww), private=True)
         self.speak_dialog("NewWakeWord", {"ww": self.new_ww}, private=True)
 
@@ -406,10 +410,11 @@ class ControlsSkill(MycroftSkill):
                                               multiple=True)
             self.user_config.update_yaml_file(header="listener", sub_header="phonemes",
                                               value=get_phonemes(self.new_ww, "en"))
-            if not self.check_for_signal("CORE_skipWakeWord", -1):
-                os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
-                          self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh voice")
-            self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
+            # if not self.check_for_signal("CORE_skipWakeWord", -1):
+            #     # TODO: Better method to restart voice DM
+            #     os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
+            #               self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh voice")
+            # self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
 
     def change_location(self, do_tz=False, do_loc=False, message=None):
         start_time = time()
@@ -515,7 +520,7 @@ class ControlsSkill(MycroftSkill):
                 # LOG.debug('YML Updates Complete')
             # self.speak("Changing location to {}".format(to_change))
             # self.create_signal("NGI_YAML_user_update")
-            self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
+            # self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
 
     @intent_handler(IntentBuilder("NeonBrain").optionally("Permit").optionally("Deny").require("Show").
                     require("Brain").optionally("OnStartup").build())
@@ -533,33 +538,34 @@ class ControlsSkill(MycroftSkill):
     @intent_handler(IntentBuilder("ConfirmListening").optionally("Permit").optionally("Deny").
                     require("ConfirmListening").optionally("OnStartup").optionally("With").optionally("WW").build())
     def handle_confirm_listening(self, message):
-        import os
-        self.user_config.check_for_updates()
+        # import os
+        # self.user_config.check_for_updates()
         # self.create_signal("NGI_YAML_user_update")
         if message.data.get("Permit"):
             self.speak("I will chime when I hear my wake word.", private=True)
-            self.user_config.update_yaml_file(header="interface", sub_header="confirm_listening", value=True)
+            self.local_config.update_yaml_file(header="interface", sub_header="confirm_listening", value=True)
         else:
             self.speak("I will stop making noise when I hear my wake word", private=True)
-            self.user_config.update_yaml_file(header="interface", sub_header="confirm_listening", value=False)
-        self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
+            self.local_config.update_yaml_file(header="interface", sub_header="confirm_listening", value=False)
+        # self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
 
-        if not self.check_for_signal("CORE_skipWakeWord", -1):
-            os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
-                      self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh voice")
+        # TODO: Restart voice/update config DM
+        # if not self.check_for_signal("CORE_skipWakeWord", -1):
+        #     os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
+        #               self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh voice")
 
     @intent_handler(IntentBuilder("SpeakSpeed").require("Talk").require("Speed").build())
     def handle_speak_faster(self, message):
         self.user_config.check_for_updates()
         if "slower" in message.data.get("Speed"):
-            speed = (float(self.user_info_available['speech']['speed_multiplier']) * 0.9)
+            speed = (float(self.preference_speech(message).get('speed_multiplier', 1.0)) * 0.9)
             if speed < 0.7:
                 speed = 0.7
                 phrase = "I cannot talk any slower."
             else:
                 phrase = "I will talk slower."
         elif "faster" in message.data.get("Speed"):
-            speed = (float(self.user_info_available['speech']['speed_multiplier']) / 0.9)
+            speed = (float(self.preference_speech(message).get('speed_multiplier', 1.0)) / 0.9)
             if speed > 1.5:
                 speed = 1.5
                 phrase = "I cannot talk any faster."
@@ -769,7 +775,7 @@ class ControlsSkill(MycroftSkill):
                 if self.check_for_signal('CORE_useHesitation', -1):
                     self.speak("Sounds good.", private=True)
 
-                self.user_config.check_for_updates()  # TODO: Is this necessary? DM
+                # self.user_config.check_for_updates()
                 LOG.info(message)
                 # 0 index works because this skill only handles one action per confirmation
                 action_requested = self.actions_to_confirm.pop(user)[0]
@@ -798,6 +804,7 @@ class ControlsSkill(MycroftSkill):
                     self.change_location(do_tz=True, do_loc=True, message=message)
                 self.cancel_scheduled_event(f"{user}_{action_requested}")
                 return True
+        return False
 
     def stop(self):
         self.clear_signals("USC")
@@ -865,7 +872,6 @@ class ControlsSkill(MycroftSkill):
             self.bus.emit(Message('recognizer_loop:wakeword', payload))
         if payload['utterances'][0]:
             self.bus.emit(Message("recognizer_loop:utterance", payload))
-
 
 
 def create_skill():
