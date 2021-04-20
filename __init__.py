@@ -19,8 +19,6 @@
 
 import re
 import pytz
-import tkinter as tk
-import tkinter.simpledialog as dialog_box
 
 from mycroft.util.parse import extract_number
 from adapt.intent import IntentBuilder
@@ -33,6 +31,12 @@ from neon_utils.skills.neon_skill import NeonSkill  # , LOG
 
 # from NGI.utilities.chat_user_util import get_chat_nickname_from_filename
 from neon_utils.location_utils import *
+
+try:
+    import tkinter as tk
+    import tkinter.simpledialog as dialog_box
+except ModuleNotFoundError:
+    LOG.info(f"tk not available")
 
 
 class ControlsSkill(NeonSkill):
