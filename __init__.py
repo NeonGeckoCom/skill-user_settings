@@ -19,8 +19,6 @@
 
 import re
 import pytz
-import tkinter as tk
-import tkinter.simpledialog as dialog_box
 
 from mycroft.util.parse import extract_number
 from adapt.intent import IntentBuilder
@@ -33,6 +31,12 @@ from neon_utils.skills.neon_skill import NeonSkill  # , LOG
 
 # from NGI.utilities.chat_user_util import get_chat_nickname_from_filename
 from neon_utils.location_utils import *
+
+try:
+    import tkinter as tk
+    import tkinter.simpledialog as dialog_box
+except ModuleNotFoundError:
+    LOG.info(f"tk not available")
 
 
 class ControlsSkill(NeonSkill):
@@ -50,11 +54,12 @@ class ControlsSkill(NeonSkill):
         self.location_dict = {}
         # Read clap/blink settings
         try:
-            self.create_signal("CLAP_active") if self.configuration_available.get('interface', {}).get('clap_commands_enabled') \
+            # TODO: Depreciate signal use DM
+            self.create_signal("CLAP_active") if self.local_config.get('interface', {}).get('clap_commands_enabled') \
                 else self.check_for_signal("CLAP_active")
-            self.create_signal("BLINK_active") if self.configuration_available.get('interface', {}).get('blink_commands_enabled') \
+            self.create_signal("BLINK_active") if self.local_config.get('interface', {}).get('blink_commands_enabled') \
                 else self.check_for_signal("BLINK_active")
-            self.create_signal("CORE_useHesitation") if self.configuration_available.get('interface', {}).get('use_hesitation') \
+            self.create_signal("CORE_useHesitation") if self.local_config.get('interface', {}).get('use_hesitation') \
                 else self.check_for_signal("CORE_useHesitation")
         except KeyError:
             # self.create_signal("NGI_YAML_user_update")
