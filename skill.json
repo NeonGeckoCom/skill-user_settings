@@ -19,7 +19,10 @@
     "warning": "",
     "systemDeps": false,
     "requirements": {
-        "python": [],
+        "python": [
+            "phoneme_guesser",
+            "git+https://github.com/NeonGeckoCom/neon-skill-utils"
+        ],
         "system": {},
         "skill": []
     },
@@ -43,6 +46,5 @@
     ],
     "skillname": "Controls",
     "authorname": "Neon",
-    "foldername": "controls.neon",
-    "download_url": "https://api.github.com/repos/NeonGeckoCom/controls.neon/zipball/master"
+    "foldername": null
 }
