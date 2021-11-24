@@ -1,5 +1,5 @@
 {
-    "title": "Controls",
+    "title": "User Settings",
     "url": "https://github.com/NeonGeckoCom/skill-user_settings.git",
     "summary": "Have Neon help you change and control your user settings.",
     "short_description": "Have Neon help you change and control your user settings.",
@@ -48,7 +48,7 @@
         "reginaneon",
         "NeonGeckoCom"
     ],
-    "skillname": "Controls",
+    "skillname": "User Settings",
     "authorname": "NeonGeckoCom",
     "foldername": null
 }
