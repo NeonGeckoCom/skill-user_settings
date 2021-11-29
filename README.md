@@ -1,4 +1,4 @@
-# <img src='https://0000.us/klatchat/app/files/neon_images/icons/neon_skill.png' card_color="#FF8600" width="50" style="vertical-align:bottom">Controls
+# <img src='https://0000.us/klatchat/app/files/neon_images/icons/neon_skill.png' card_color="#FF8600" width="50" style="vertical-align:bottom">User Settings
 
 ## Summary
 
@@ -278,5 +278,9 @@ You can use this skill in multiple ways:
 Use the [link](https://neongecko.com/ContactUs) or [submit an issue on GitHub](https://help.github.com/en/articles/creating-an-issue)
 
 ## Credits
+[reginaneon](https://github.com/reginaneon)
+[NeonGeckoCom](https://github.com/NeonGeckoCom)
 
-reginaneon [neongeckocom](https://neongecko.com/) Mycroft AI
+## Tags
+#NeonGecko Original
+#NeonAI
