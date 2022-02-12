@@ -1,9 +1,0 @@
-{
-  "utterance": "deny text transcription",
-  "intent_type": "DenyAudioTranscription",
-  "intent": {
-    "Deny1": "deny",
-    "Transcription3": "text",
-    "Transcription2": "transcription"
-}
-}

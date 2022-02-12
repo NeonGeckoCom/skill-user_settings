@@ -31,7 +31,7 @@ import pytz
 
 from adapt.intent import IntentBuilder
 from mycroft_bus_client import Message
-from mycroft.skills.core import intent_handler
+from mycroft.skills.core import intent_handler, intent_file_handler
 from datetime import timedelta
 from phoneme_guesser import get_phonemes
 from time import time
@@ -58,6 +58,45 @@ class ControlsSkill(NeonSkill):
         self.new_loc = ""
         self.long_lat_dict = {}
         self.location_dict = {}
+
+    def initialize(self):
+        self.register_entity_file('dialogmode.entity')
+
+    @intent_file_handler("change_dialog.intent")
+    def handle_change_dialog_option(self, message):
+        """
+        Switch between primary and random dialog modes.
+        Primary uses only the first option for dialog files, random allows the
+        dialog renderer to function normally
+        :param message:  message object associated with request
+        """
+        dialog_mode = message.data.get('utterance').lower()
+        if self.voc_match(dialog_mode, "Primary"):
+            dialog_mode = "primary"
+        elif self.voc_match(dialog_mode, "Random"):
+            dialog_mode = "random"
+        else:
+            LOG.error(f"No dialog mode found in: {message.data}")
+            self.speak_dialog("DialogModeNotSpecified", private=True)
+            return
+        # TODO: This should use some per-user configuration value DM
+        if dialog_mode == "primary" and not \
+                self.check_for_signal("SKILLS_useDefaultResponses", -1) or \
+                dialog_mode == "random" and \
+                self.check_for_signal("SKILLS_useDefaultResponses", -1):
+
+            if self.ask_yesno("ChangeDialog", {'mode': dialog_mode}) == "yes":
+                if dialog_mode == "primary":
+                    self.create_signal("SKILLS_useDefaultResponses")
+                else:
+                    self.check_for_signal("SKILLS_useDefaultResponses")
+                self.speak_dialog("ConfirmChangeDialog",
+                                  {"mode": dialog_mode}, private=True)
+            else:
+                self.speak_dialog("NotDoingAnything", private=True)
+        else:
+            self.speak_dialog("AlreadyInDialogMode",
+                              {"mode": dialog_mode}, private=True)
 
     @intent_handler(IntentBuilder("ChangeMeasuring").require("Change").optionally("My").optionally("Time")
                     .require("Units").optionally("To").one_of("American", "Military").build())
