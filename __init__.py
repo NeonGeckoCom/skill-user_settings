@@ -235,7 +235,7 @@ class ControlsSkill(NeonSkill):
     @intent_handler(IntentBuilder("change_dialog").require("change")
                     .require("dialog_mode").one_of("random", "limited")
                     .build())
-    def handle_change_dialog_option(self, message: Message):
+    def handle_change_dialog_mode(self, message: Message):
         """
         Handle a request to switch between normal and limited dialog modes
         :param message: Message associated with request

@@ -430,6 +430,44 @@ class TestSkill(unittest.TestCase):
 
         self.skill.ask_yesno = real_ask_yesno
 
+    def test_handle_change_dialog_option(self):
+        test_profile = get_default_user_config()
+        test_profile["user"]["username"] = "test_user"
+        test_message = Message("test", {"limited": "limited"},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        test_profile["response_mode"]["limit_dialog"] = False
+
+        # random -> limited
+        self.skill.handle_change_dialog_mode(test_message)
+        self.assertTrue(test_message.context["user_profiles"][0]
+                        ["response_mode"]["limit_dialog"])
+        self.skill.speak_dialog.assert_called_with("dialog_mode_changed",
+                                                   {"response": "limited"},
+                                                   private=True)
+        # limited -> limited
+        self.skill.handle_change_dialog_mode(test_message)
+        self.assertTrue(test_message.context["user_profiles"][0]
+                        ["response_mode"]["limit_dialog"])
+        self.skill.speak_dialog.assert_called_with("dialog_mode_already_set",
+                                                   {"response": "limited"},
+                                                   private=True)
+        test_message.data = {"random": "standard"}
+        # limited -> random
+        self.skill.handle_change_dialog_mode(test_message)
+        self.assertFalse(test_message.context["user_profiles"][0]
+                         ["response_mode"]["limit_dialog"])
+        self.skill.speak_dialog.assert_called_with("dialog_mode_changed",
+                                                   {"response": "random"},
+                                                   private=True)
+        # random -> random
+        self.skill.handle_change_dialog_mode(test_message)
+        self.assertFalse(test_message.context["user_profiles"][0]
+                         ["response_mode"]["limit_dialog"])
+        self.skill.speak_dialog.assert_called_with("dialog_mode_already_set",
+                                                   {"response": "random"},
+                                                   private=True)
+
     def test_get_timezone_from_location(self):
         name, offset = \
             self.skill._get_timezone_from_location(
