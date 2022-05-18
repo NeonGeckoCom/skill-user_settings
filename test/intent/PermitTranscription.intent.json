@@ -1,9 +1,0 @@
-{
-  "utterance": "permit text transcription",
-  "intent_type": "PermitAudioTranscription",
-  "intent": {
-    "Permit1": "permit",
-    "Transcription3": "text",
-    "Transcription2": "transcription"
-}
-}
