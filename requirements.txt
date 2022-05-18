@@ -1,2 +1,2 @@
-phoneme_guesser
-neon-utils>=0.5.7
+pytz>=2021.3
+neon-utils @ git+https://github.com/neondaniel/neon-skill-utils@FEAT_MultiUserSettingsCompat

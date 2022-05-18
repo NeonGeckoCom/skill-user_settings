@@ -1,9 +1,0 @@
-{
-  "utterance": "begin clapper",
-  "intent_type": "StartClapper",
-  "intent": {
-    "Permit1": "begin",
-    "StartClapper": "clapper",
-    "Settings": "process"
-}
-}

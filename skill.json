@@ -20,7 +20,7 @@
     "systemDeps": false,
     "requirements": {
         "python": [
-            "phoneme_guesser",
+            "pytz>=2021.3",
             "neon-utils>=0.5.7"
         ],
         "system": {},
