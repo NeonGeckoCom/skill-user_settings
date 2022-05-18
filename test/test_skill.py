@@ -29,6 +29,7 @@
 import unittest
 
 from copy import deepcopy
+from datetime import tzinfo
 from os import mkdir
 from os.path import dirname, join, exists
 from mock import Mock
@@ -190,11 +191,165 @@ class TestSkill(unittest.TestCase):
         self.assertTrue(test_message.context["user_profiles"][0]
                         ["response_mode"]["hesitation"])
 
-    def test_handle_transcription(self):
-        pass
+    def test_handle_transcription_retention(self):
+        test_profile = get_default_user_config()
+        test_profile["user"]["username"] = "test_user"
+        test_profile["privacy"]["save_audio"] = True
+        test_profile["privacy"]["save_text"] = True
+        test_message = Message("test", {"permit": "enable",
+                                        "audio": "recordings"},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        # Audio Recordings
+        # Enable -> Enable
+        self.skill.handle_transcription_retention(test_message)
+        self.skill.speak_dialog.assert_called_with("transcription_already_set",
+                                                   {"transcription": "audio",
+                                                    "enabled": "enabled"},
+                                                   private=True)
+        self.assertTrue(test_message.context["user_profiles"][0]
+                        ["privacy"]["save_audio"])
+        # Enable -> Disable
+        test_message.data = {"deny": "disable", "audio": "recording"}
+        self.skill.handle_transcription_retention(test_message)
+        self.skill.speak_dialog.assert_called_with("transcription_changed",
+                                                   {"transcription": "audio",
+                                                    "enabled": "disabled"},
+                                                   private=True)
+        self.assertFalse(test_message.context["user_profiles"][0]
+                         ["privacy"]["save_audio"])
+        # Disable -> Disable
+        self.skill.handle_transcription_retention(test_message)
+        self.skill.speak_dialog.assert_called_with("transcription_already_set",
+                                                   {"transcription": "audio",
+                                                    "enabled": "disabled"},
+                                                   private=True)
+        self.assertFalse(test_message.context["user_profiles"][0]
+                         ["privacy"]["save_audio"])
+        # Disable -> Enable
+        test_message.data = {"permit": "enable", "audio": "recording"}
+        self.skill.handle_transcription_retention(test_message)
+        self.skill.speak_dialog.assert_called_with("transcription_changed",
+                                                   {"transcription": "audio",
+                                                    "enabled": "enabled"},
+                                                   private=True)
+        self.assertTrue(test_message.context["user_profiles"][0]
+                        ["privacy"]["save_audio"])
+        # Text Transcriptions
+        # Enable -> Disable
+        test_message.data = {"deny": "disable", "text": "transcription"}
+        self.skill.handle_transcription_retention(test_message)
+        self.skill.speak_dialog.assert_called_with("transcription_changed",
+                                                   {"transcription": "text",
+                                                    "enabled": "disabled"},
+                                                   private=True)
+        self.assertFalse(test_message.context["user_profiles"][0]
+                         ["privacy"]["save_text"])
+        # Disable -> Disable
+        self.skill.handle_transcription_retention(test_message)
+        self.skill.speak_dialog.assert_called_with("transcription_already_set",
+                                                   {"transcription": "text",
+                                                    "enabled": "disabled"},
+                                                   private=True)
+        self.assertFalse(test_message.context["user_profiles"][0]
+                         ["privacy"]["save_text"])
+        # Disable -> Enable
+        test_message.data = {"permit": "allow", "text": "transcription"}
+        self.skill.handle_transcription_retention(test_message)
+        self.skill.speak_dialog.assert_called_with("transcription_changed",
+                                                   {"transcription": "text",
+                                                    "enabled": "enabled"},
+                                                   private=True)
+        self.assertTrue(test_message.context["user_profiles"][0]
+                        ["privacy"]["save_text"])
+        # Enable -> Enable
+        self.skill.handle_transcription_retention(test_message)
+        self.skill.speak_dialog.assert_called_with("transcription_already_set",
+                                                   {"transcription": "text",
+                                                    "enabled": "enabled"},
+                                                   private=True)
+        self.assertTrue(test_message.context["user_profiles"][0]
+                        ["privacy"]["save_text"])
 
     def test_handle_speak_speed(self):
+        test_profile = get_default_user_config()
+        test_profile["user"]["username"] = "test_user"
+        test_message = Message("test", {"faster": "faster"},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        self.assertEqual(test_profile["speech"]["speed_multiplier"], 1.0)
+
+        # Speak faster
+        self.skill.handle_speech_speed(test_message)
+        self.skill.speak_dialog.assert_called_once_with("speech_speed_faster",
+                                                        private=True)
+        self.assertGreater(test_message.context["user_profiles"][0]
+                           ["speech"]["speed_multiplier"], 1.0)
+        # Speak max speed
+        test_message.context["user_profiles"][0]["speech"][
+            "speed_multiplier"] = self.skill.MAX_SPEECH_SPEED
+        self.skill.handle_speech_speed(test_message)
+        self.skill.speak_dialog.assert_called_with("speech_speed_limit",
+                                                   {"limit": "faster"},
+                                                   private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["speech"]["speed_multiplier"],
+                         self.skill.MAX_SPEECH_SPEED)
+        # Speak normally
+        test_message.data = {"normally": "normally"}
+        self.skill.handle_speech_speed(test_message)
+        self.skill.speak_dialog.assert_called_with("speech_speed_normal",
+                                                   private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["speech"]["speed_multiplier"], 1.0)
+        # Speak slower
+        test_message.data = {"slower": "slower"}
+        self.skill.handle_speech_speed(test_message)
+        self.skill.speak_dialog.assert_called_with("speech_speed_slower",
+                                                        private=True)
+        self.assertLess(test_message.context["user_profiles"][0]
+                        ["speech"]["speed_multiplier"], 1.0)
+        # Speak min speed
+        test_message.context["user_profiles"][0]["speech"][
+            "speed_multiplier"] = self.skill.MIN_SPEECH_SPEED
+        self.skill.handle_speech_speed(test_message)
+        self.skill.speak_dialog.assert_called_with("speech_speed_limit",
+                                                   {"limit": "slower"},
+                                                   private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["speech"]["speed_multiplier"],
+                         self.skill.MIN_SPEECH_SPEED)
+
+    def test_handle_change_location_timezone(self):
         pass
+
+    def test_get_timezone_from_location(self):
+        name, offset = \
+            self.skill._get_timezone_from_location(
+                self.skill._get_location_from_spoken_location("seattle"))
+        self.assertEqual(name, "America/Los_Angeles")
+        self.assertIsInstance(offset, float)
+
+        timezone = \
+            self.skill._get_timezone_from_location(
+                self.skill._get_location_from_spoken_location(
+                    "non-existent place"))
+        self.assertIsNone(timezone)
+
+    def test_get_location_from_spoken_location(self):
+        address = self.skill._get_location_from_spoken_location("seattle")
+        self.assertEqual(address['address']['city'], "Seattle")
+        self.assertEqual(address['address']['state'], "Washington")
+        self.assertEqual(address['address']['country'], "United States")
+        self.assertIsInstance(address['lat'], str)
+        self.assertIsInstance(address['lon'], str)
+
+        address = self.skill._get_location_from_spoken_location("kyiv",
+                                                                "en-us")
+        self.assertEqual(address['address']['city'], "Kyiv")
+        self.assertEqual(address['address']['country'], "Ukraine")
+        self.assertIsInstance(address['lat'], str)
+        self.assertIsInstance(address['lon'], str)
 
 
 if __name__ == '__main__':

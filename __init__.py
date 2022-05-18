@@ -27,19 +27,26 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import re
+from typing import Optional, Tuple
+
 import pytz
 
 from adapt.intent import IntentBuilder
 from mycroft_bus_client import Message
 from mycroft.skills.core import intent_handler
-from datetime import timedelta
+from datetime import timedelta, tzinfo
 from time import time
+
+from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
 from neon_utils.logger import LOG
 from neon_utils.user_utils import get_user_prefs
 
 
 class ControlsSkill(NeonSkill):
+    MAX_SPEECH_SPEED = 1.5
+    MIN_SPEECH_SPEED = 0.7
+
     def __init__(self):
         super(ControlsSkill, self).__init__(name="UserSettingsSkill")
 
@@ -105,7 +112,7 @@ class ControlsSkill(NeonSkill):
 
     @intent_handler(IntentBuilder("Transcription").one_of("permit", "deny")
                     .one_of("audio", "text").require("retention").build())
-    def handle_transcription(self, message: Message):
+    def handle_transcription_retention(self, message: Message):
         """
         Handle a request to permit or deny saving audio recordings
         :param message: Message associated with request
@@ -135,7 +142,7 @@ class ControlsSkill(NeonSkill):
 
     @intent_handler(IntentBuilder("SpeakSpeed").require("speak_to_me")
                     .one_of("faster", "slower", "normally").build())
-    def handle_speak_faster(self, message: Message):
+    def handle_speech_speed(self, message: Message):
         """
         Handle a request to adjust response audio playback speed
         :param message: Message associated with request
@@ -151,19 +158,19 @@ class ControlsSkill(NeonSkill):
         else:
             raise RuntimeError("Missing speed keyword")
 
-        if speed < 0.7:
-            speed = 0.7
-        elif speed > 1.5:
-            speed = 1.5
+        if speed < self.MIN_SPEECH_SPEED:
+            speed = self.MIN_SPEECH_SPEED
+        elif speed > self.MAX_SPEECH_SPEED:
+            speed = self.MAX_SPEECH_SPEED
 
         speed = round(speed, 1)
         self.update_profile({"speech": {"speed_multiplier": speed}})
 
-        if speed == current_speed == 1.5:
+        if speed == current_speed == self.MAX_SPEECH_SPEED:
             self.speak_dialog("speech_speed_limit",
                               {"limit": self.translate("word_faster")},
                               private=True)
-        elif speed == current_speed == 0.7:
+        elif speed == current_speed == self.MIN_SPEECH_SPEED:
             self.speak_dialog("speech_speed_limit",
                               {"limit": self.translate("word_slower")},
                               private=True)
@@ -174,274 +181,93 @@ class ControlsSkill(NeonSkill):
         elif speed < current_speed:
             self.speak_dialog("speech_speed_slower", private=True)
 
-
-#### TODO: Test above handlers and then continue DM
-
-    @intent_handler(IntentBuilder("ChangeWW").optionally("Neon").require("Change").optionally("My").require("WW").
-                    require("To").build())
-    def change_ww(self, message, ww=None):
-        # self.clear_signals("USC")
-        user = self.get_utterance_user(message)
-        self.new_ww = ww
-        if not ww:
-            words = message.data.get('utterance').split()
-            for word in words:
-                if word == 'to':
-                    self.new_ww = ' '.join(words[int(words.index(word) + 1):])
-                    break
-            # self.new_ww = message.data.get("WakeWord")
-            # to_change = message.data.get("utterance").replace(message.data.get("WW"), "").replace(
-            #     message.data.get("To"), "").replace(message.data.get("Change"), "").strip()
-            # to_change = to_change.replace(message.data.get("My"), "").strip() if message.data.get("My") else to_change
-            # LOG.info(to_change)
-            # self.new_ww = to_change
-        LOG.debug(self.new_ww)
-        LOG.info(self.new_ww)
-        self.new_ww = re.compile("[^a-zA-Z ]").sub('', self.new_ww)
-        if len(self.new_ww.split()) < 2:
-            # self.speak("Please pick a longer wake word phrase.", private=True)
-            self.speak_dialog("NeedLongerWakeWord", private=True)
-        # TODO: Check syllables, not words (should be at least 3 syllables) DM
-        else:
-            # self.speak("Change my wake word to {}?".format(self.new_ww), True, private=True)
-            self.speak_dialog("ConfirmNewWakeWord", {"ww": self.new_ww}, True, private=True)
-            self.await_confirmation(user, "wwChange")
-            # self.create_signal("USC_wwChange")
-            # self.handle_wait()
-
-    @intent_handler(IntentBuilder("UpdateTimeZone").optionally("Neon").require("Change").require("My").
-                    require("TimeZone").require("To").build())
-    def update_timezone(self, message):
-        # flac_filename = message.data.get('flac_filename')
-        user = self.get_utterance_user(message)
-        self.user_config.check_for_updates()
-        self.clear_signals("USC")
-        old_loc = self.preference_location(message)['city']
-        # self.update_location(message, tz_only=True)
-        to_change = message.data.get("utterance").replace(message.data.get("TimeZone"), "").replace(
-            message.data.get("To"), "", 1).replace(message.data.get("Change"), "").strip()
-        to_change = to_change.replace(message.data.get("My"), "", 1).strip() if message.data.get("My") else to_change
-        to_change = to_change.replace(message.data.get("Neon"), "", 1).strip() if message.data.get("Neon") \
-            else to_change
-        to_change = str(to_change).lower()
-        LOG.info(to_change)
-        utc_opts = ['gmt', 'utc']
-        if any(opt in to_change for opt in utc_opts):
-            try:
-                new_utc = float(re.sub(' ', '', re.sub('[a-z]', '', to_change)))
-                LOG.debug(new_utc)
-            except Exception as e:
-                LOG.debug(e)
-                new_utc = 0.0
-            utc_offset = timedelta(hours=new_utc)
-            now = datetime.now(pytz.utc)
-            tz_name = list(tz.zone for tz in map(pytz.timezone, pytz.common_timezones)
-                           if now.astimezone(tz).utcoffset() == utc_offset)[1]
-            self.speak_dialog('ChangeLocation', {"type": "time zone",
-                                                 "location": "UTC " + str(new_utc)}, private=True)
-            self.user_config.update_yaml_file(header="location", sub_header="tz", value=tz_name, multiple=True)
-            self.user_config.update_yaml_file(header="location", sub_header="utc", value=new_utc, final=True)
-            LOG.debug('YML Updates Complete')
-            self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
-        # TODO: Handle Timezone Names DM
-
-        elif self.server:
-            self.change_location(True, True, message)
-        else:
-            self.new_loc = to_change  # TODO: Associate with user to allow converse for server too? DM
-            self.speak_dialog("AlsoLocation", {"type": "location",
-                                               "old": old_loc,
-                                               "new": to_change.title()}, True, private=True)
-            # self.speak("Would you also like to change your location?", True)
-            self.await_confirmation(user, "tzChange")
-            # self.create_signal("USC_tzChange")
-            # self.handle_wait()
-
-    @intent_handler(IntentBuilder("UpdateLocation").optionally("Neon").require("Change").optionally("My").
-                    require("Location").require("To").build())
-    def update_location(self, message):
-        # flac_filename = message.data.get('flac_filename')
-        user = self.get_utterance_user(message)
-        self.user_config.check_for_updates()
-        self.clear_signals("USC")
-        old_tz = str(self.preference_location(message)['tz']).split('/')[1].replace('_', ' ')
-        to_change = message.data.get("utterance").replace(message.data.get("Location"), "").replace(
-            message.data.get("To"), "", 1).replace(message.data.get("Change"), "").strip()
-        to_change = to_change.replace(message.data.get("My"), "", 1).strip() if message.data.get("My") else to_change
-        to_change = to_change.replace(message.data.get("Neon"), "", 1).strip() if message.data.get("Neon") \
-            else to_change
-        LOG.info(to_change)
-        self.new_loc = to_change
-        if self.server:
-            self.change_location(True, True, message)
-        else:
-            self.speak_dialog("AlsoLocation", {"type": "time",
-                                               "old": old_tz + " time",
-                                               "new": to_change.title() + " time"}, True)
-            # self.speak("Would you also like to change your time zone?", True)
-            self.await_confirmation(user, "locChange")
-            # self.create_signal("USC_locChange")
-            # self.handle_wait()
-
-    def write_ww_change(self):
-        # import os
-        # self.speak("Alright. I'll respond to '{}' from now on".format(self.new_ww), private=True)
-        self.speak_dialog("NewWakeWord", {"ww": self.new_ww}, private=True)
-
-        if self.server:
-            # TODO: Something in user profile? DM
+    @intent_handler(IntentBuilder("ChangeLocationTimezone").require("change")
+                    .one_of("timezone", "location").require("Place").build())
+    def handle_change_location_timezone(self, message: Message):
+        """
+        Handle a request to change user configured location or timezone.
+        This will prompt the user to update the non-requested setting too
+        :param message: Message associated with request
+        """
+        requested_place = message.data.get("Place")
+        resolved_place = self._get_location_from_spoken_location(
+            requested_place, self.lang)
+        if not resolved_place and message.data.get("timezone"):
+            # TODO: Try resolving tz by name DM
             pass
-        else:
-            # self.create_signal("NGI_YAML_user_update")
-            self.user_config.update_yaml_file(header="listener", sub_header="wake_word", value=self.new_ww,
-                                              multiple=True)
-            self.user_config.update_yaml_file(header="listener", sub_header="phonemes",
-                                              value=get_phonemes(self.new_ww, "en"))
-            # if not self.check_for_signal("CORE_skipWakeWord", -1):
-            #     # TODO: Better method to restart voice DM
-            #     os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
-            #               self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh voice")
-            # self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
-
-    def change_location(self, do_tz=False, do_loc=False, message=None):
-        start_time = time()
-
-        # Init Variables (these will only be used if they are overwritten)
-        city, state, country, timezone, offset = None, None, None, None, None
-
-        try:
-            if self.new_loc in self.long_lat_dict:
-                LOG.debug(f"DM: location name cache hit: {self.new_loc}")
-                coord = self.long_lat_dict[self.new_loc]
-                lat = coord['lat']
-                lng = coord['lng']
-            else:
-                lat, lng = get_coordinates(self.new_loc)
-                LOG.debug(f"DM: location: lat/lng={lat}, {lng}")
-                if self.new_loc and not (lat == -1 and lng == -1):
-                    self.long_lat_dict[self.new_loc] = {'lat': lat, 'lng': lng}
-                    self.bus.emit(Message('neon.update_cache', {'cache': 'coord_cache', 'dict': self.long_lat_dict}))
-            LOG.debug(f"DM: lat/lng={lat},{lng}, do_tz/do_loc={do_tz},{do_loc}")
-
-            if do_tz:
-                timezone, offset = get_timezone(lat, lng)
-                LOG.debug(f"timezone={timezone} offset={offset}")
-            if do_loc:
-                if f"{lat}, {lng}" in self.location_dict:
-                    results = self.location_dict[f"{lat}, {lng}"]
-                    LOG.debug(f"DM: results={results}")
-                    city = results["city"]
-                    state = results["state"]
-                    country = results["country"]
-                    LOG.debug(f"DM: cache time={time() - start_time}")
-                else:
-                    LOG.debug("DM: Lookup location from coords")
-                    city, county, state, country = get_location(lat, lng)
-                    if not city:
-                        city = self.new_loc.split()[0].title()
-                    LOG.debug(f"{city}, {county}, {state}, {country}")
-                    if city and state and country and not (lat == -1 and lng == -1):
-                        self.location_dict[f"{lat}, {lng}"] = {'city': city, 'state': state, 'country': country}
-                        self.bus.emit(Message('neon.update_cache', {'cache': 'location_cache',
-                                                                    'dict': self.location_dict}))
-                    LOG.debug(f"DM: lookup time={time() - start_time}")
-        except Exception as e:
-            if not do_loc:
-                pass
-                # TODO: Try to process TZ names/offsets
-            LOG.error(e)
-            self.speak("It looks like there was a problem with your entered location. Please, try again.", private=True)
+        if not resolved_place:
+            self.speak_dialog("location_not_found",
+                              {"location": requested_place},
+                              private=True)
             return
 
-        if self.server:
-            self.speak("I am updating your user profile.", private=True)
-            # flac_filename = message.context["flac_filename"]
-            user_dict = self.build_user_dict(message)
-            user_dict['lat'] = lat
-            user_dict['lng'] = lng
-            LOG.debug(f"do_loc={do_loc}")
-            if do_loc:
-                user_dict['city'] = city
-                user_dict['state'] = state
-                user_dict['country'] = country
-            LOG.debug(f"do_tz={do_tz}")
-            if do_tz:
-                user_dict['tz'] = timezone
-                user_dict['utc'] = offset
-            LOG.info("user_dict: " + str(user_dict))
-            self.socket_emit_to_server("update profile", ["skill", user_dict,
-                                                          message.context["klat_data"]["request_id"]])
-            # self.socket_io_emit(event="update profile", kind="skill",
-            #                     flac_filename=flac_filename, message=user_dict)
-        # self.socket_io_emit(event="location update", message={'lat': lat,
-        #                                                       'lng': lng,
-        #                                                       'city': city,
-        #                                                       'state': state,
-        #                                                       'country': country,
-        #                                                       'nick': get_chat_nickname_from_filename(flac_filename)
-        #                                                       })
+        tz_name, utc_offset = get_timezone(resolved_place["lat"],
+                                           resolved_place["lon"])
+        if message.data.get("timezone"):
+            do_timezone = True
+            do_location = self.get_response(
+                "also_change_location_tz",
+                {"type": self.translate("word_location"),
+                 "new": requested_place}, num_retries=0) == "yes"
+        elif message.data.get("location"):
+            do_location = True
+            do_timezone = self.get_response(
+                "also_change_location_tz",
+                {"type": self.translate("word_timezone"),
+                 "new": requested_place}, num_retries=0) == "yes"
         else:
-            if do_loc:
-                # TODO: Catch null values before error thrown here!! DM
-                self.speak_dialog('ChangeLocation', {"type": "location",
-                                                     "location": city + ', ' + state + ', ' + country}, private=True)
-                self.user_config.update_yaml_file(header="location", sub_header="lat", value=lat, multiple=True)
-                self.user_config.update_yaml_file(header="location", sub_header="lng", value=lng, multiple=True)
-                self.user_config.update_yaml_file(header="location", sub_header="city", value=city, multiple=True)
-                self.user_config.update_yaml_file(header="location", sub_header="state", value=state, multiple=True)
-                if not do_tz:
-                    self.user_config.update_yaml_file(header="location", sub_header="country",
-                                                      value=country, final=True)
-                    # LOG.debug('YML Updates Complete')
-                else:
-                    self.user_config.update_yaml_file(header="location", sub_header="country",
-                                                      value=country, multiple=True)
+            do_location = False
+            do_timezone = False
 
-            if do_tz:
-                self.speak_dialog('ChangeLocation',
-                                  {"type": "time zone",
-                                   "location": f'<say-as interpret-as="characters">UTC</say-as> {offset}'},
-                                  private=True)
-                self.user_config.update_yaml_file(header="location", sub_header="tz", value=timezone, multiple=True)
-                self.user_config.update_yaml_file(header="location", sub_header="utc", value=offset, final=True)
-                # LOG.debug('YML Updates Complete')
-            # self.speak("Changing location to {}".format(to_change))
-            # self.create_signal("NGI_YAML_user_update")
-            # self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
+        if do_timezone:
+            self.update_profile({"location": {"tz": tz_name,
+                                              "utc": utc_offset}})
+            self.speak_dialog("change_location_tz",
+                              {"type": self.translate("word_timezone"),
+                               "location": tz_name},
+                              private=True)
+        if do_location:
+            self.update_profile({'location': {
+                'city': resolved_place['address']['city'],
+                'state': resolved_place['address'].get('state'),
+                'country': resolved_place['address']['country'],
+                'lat': float(resolved_place['lat']),
+                'lng': float(resolved_place['lon'])}})
+            self.speak_dialog("change_location_tz",
+                              {"type": self.translate("word_location"),
+                               "location": resolved_place['address']['city']})
 
-    # TODO: Move to device_controls DM
-    @intent_handler(IntentBuilder("NeonBrain").optionally("Permit").optionally("Deny").require("Show").
-                    require("Brain").optionally("OnStartup").build())
-    def handle_brain(self, message):
-        self.user_config.check_for_updates()
-        # self.create_signal("NGI_YAML_user_update")
-        if message.data.get("Permit") or not message.data.get("Deny"):
-            self.speak("Launching Neon Brain.", private=True)
-            self.user_config.update_yaml_file(header="interface", sub_header="display_neon_brain", value=True)
-        else:
-            self.speak("Hiding Neon Brain.", private=True)
-            self.user_config.update_yaml_file(header="interface", sub_header="display_neon_brain", value=False)
-        self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
+    @staticmethod
+    def _get_timezone_from_location(location: dict) -> \
+            Optional[Tuple[str, float]]:
+        """
+        Get timezone info for the resolved location
+        :param location: location data to get timezone for
+        :returns: Timezone name, UTC Offset
+        """
+        try:
+            tz_name, tz_offset = get_timezone(location["lat"], location["lon"])
+            return tz_name, tz_offset
+        except (KeyError, TypeError):
+            return None
 
-    # TODO: Move to device_controls DM
-    @intent_handler(IntentBuilder("ConfirmListening").optionally("Permit").optionally("Deny").
-                    require("ConfirmListening").optionally("OnStartup").optionally("With").optionally("WW").build())
-    def handle_confirm_listening(self, message):
-        # import os
-        # self.user_config.check_for_updates()
-        # self.create_signal("NGI_YAML_user_update")
-        if message.data.get("Permit"):
-            self.speak("I will chime when I hear my wake word.", private=True)
-            self.local_config.update_yaml_file(header="interface", sub_header="confirm_listening", value=True)
-        else:
-            self.speak("I will stop making noise when I hear my wake word", private=True)
-            self.local_config.update_yaml_file(header="interface", sub_header="confirm_listening", value=False)
-        # self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
-
-        # TODO: Restart voice/update config DM
-        # if not self.check_for_signal("CORE_skipWakeWord", -1):
-        #     os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
-        #               self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh voice")
+    @staticmethod
+    def _get_location_from_spoken_location(location: str,
+                                           lang: Optional[str] = None) -> \
+            Optional[dict]:
+        """
+        Get address information for the requested location
+        :param location: spoken location to get data for
+        :returns: dict of location data containing at minimum:
+            'lat', 'lon', 'address'['city'], address['country']
+        """
+        from neon_utils.location_utils import get_full_location
+        try:
+            place = get_full_location(location, lang)
+        except AttributeError:
+            LOG.warning(f"Could not locate: {location}")
+            place = None
+        return place
 
     def stop(self):
         pass
