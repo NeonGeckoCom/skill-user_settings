@@ -459,6 +459,14 @@ class TestSkill(unittest.TestCase):
         self.assertIsInstance(address['lat'], str)
         self.assertIsInstance(address['lon'], str)
 
+        address = \
+            self.skill._get_location_from_spoken_location("kirkland washington")
+        self.assertEqual(address['address']['city'], "Kirkland")
+        self.assertEqual(address['address']['state'], "Washington")
+        self.assertEqual(address['address']['country'], "United States")
+        self.assertIsInstance(address['lat'], str)
+        self.assertIsInstance(address['lon'], str)
+
 
 if __name__ == '__main__':
     unittest.main()
