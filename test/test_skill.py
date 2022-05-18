@@ -131,9 +131,8 @@ class TestSkill(unittest.TestCase):
                                 "user_profiles": [test_profile]})
         # 12 -> 12
         self.skill.handle_time_format_change(test_message)
-        self.skill.speak_dialog.assert_called_once_with("time_format_already_set",
-                                                        {"scale": "12"},
-                                                        private=True)
+        self.skill.speak_dialog.assert_called_once_with(
+            "time_format_already_set", {"scale": "12"},  private=True)
         self.assertEqual(
             test_message.context["user_profiles"][0]["units"]["time"], 12)
         # 12 -> 24
@@ -459,8 +458,8 @@ class TestSkill(unittest.TestCase):
         self.assertIsInstance(address['lat'], str)
         self.assertIsInstance(address['lon'], str)
 
-        address = \
-            self.skill._get_location_from_spoken_location("kirkland washington")
+        address = self.skill._get_location_from_spoken_location(
+            "kirkland washington")
         self.assertEqual(address['address']['city'], "Kirkland")
         self.assertEqual(address['address']['state'], "Washington")
         self.assertEqual(address['address']['country'], "United States")
