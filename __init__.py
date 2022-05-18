@@ -34,7 +34,7 @@ from neon_utils.skills.neon_skill import NeonSkill
 from neon_utils.logger import LOG
 from neon_utils.user_utils import get_user_prefs
 
-from mycroft.skills.core import intent_handler
+from mycroft.skills.core import intent_handler, intent_file_handler
 
 
 class ControlsSkill(NeonSkill):
@@ -231,6 +231,34 @@ class ControlsSkill(NeonSkill):
                               {"type": self.translate("word_location"),
                                "location": resolved_place['address']['city']},
                               private=True)
+
+    @intent_handler(IntentBuilder("change_dialog").require("change")
+                    .require("dialog_mode").one_of("random", "limited")
+                    .build())
+    def handle_change_dialog_option(self, message: Message):
+        """
+        Handle a request to switch between normal and limited dialog modes
+        :param message: Message associated with request
+        """
+        new_dialog = "word_random" if message.data.get("random") else \
+            "word_limited" if message.data.get("limited") else None
+        if not new_dialog:
+            raise RuntimeError("Missing required dialog mode")
+        new_limit_dialog = new_dialog == "word_limited"
+        current_limit_dialog = get_user_prefs(message)["response_mode"].get(
+            "limit_dialog", False)
+
+        if new_limit_dialog == current_limit_dialog:
+            self.speak_dialog("dialog_mode_already_set",
+                              {"response": self.translate(new_dialog)},
+                              private=True)
+            return
+
+        self.update_profile(
+            {"response_mode": {"limit_dialog": new_limit_dialog}})
+        self.speak_dialog("dialog_mode_changed",
+                          {"response": self.translate(new_dialog)},
+                          private=True)
 
     @staticmethod
     def _get_timezone_from_location(location: dict) -> \
