@@ -26,21 +26,15 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import re
 from typing import Optional, Tuple
-
-import pytz
-
 from adapt.intent import IntentBuilder
 from mycroft_bus_client import Message
-from mycroft.skills.core import intent_handler
-from datetime import timedelta, tzinfo
-from time import time
-
 from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
 from neon_utils.logger import LOG
 from neon_utils.user_utils import get_user_prefs
+
+from mycroft.skills.core import intent_handler
 
 
 class ControlsSkill(NeonSkill):
@@ -205,16 +199,16 @@ class ControlsSkill(NeonSkill):
                                            resolved_place["lon"])
         if message.data.get("timezone"):
             do_timezone = True
-            do_location = self.get_response(
+            do_location = self.ask_yesno(
                 "also_change_location_tz",
                 {"type": self.translate("word_location"),
-                 "new": requested_place}, num_retries=0) == "yes"
+                 "new": requested_place}) == "yes"
         elif message.data.get("location"):
             do_location = True
-            do_timezone = self.get_response(
+            do_timezone = self.ask_yesno(
                 "also_change_location_tz",
                 {"type": self.translate("word_timezone"),
-                 "new": requested_place}, num_retries=0) == "yes"
+                 "new": requested_place}) == "yes"
         else:
             do_location = False
             do_timezone = False
@@ -224,7 +218,7 @@ class ControlsSkill(NeonSkill):
                                               "utc": utc_offset}})
             self.speak_dialog("change_location_tz",
                               {"type": self.translate("word_timezone"),
-                               "location": tz_name},
+                               "location": f"UTC {utc_offset}"},
                               private=True)
         if do_location:
             self.update_profile({'location': {
@@ -235,7 +229,8 @@ class ControlsSkill(NeonSkill):
                 'lng': float(resolved_place['lon'])}})
             self.speak_dialog("change_location_tz",
                               {"type": self.translate("word_location"),
-                               "location": resolved_place['address']['city']})
+                               "location": resolved_place['address']['city']},
+                              private=True)
 
     @staticmethod
     def _get_timezone_from_location(location: dict) -> \

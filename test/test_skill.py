@@ -28,20 +28,23 @@
 
 import unittest
 
-from copy import deepcopy
-from datetime import tzinfo
 from os import mkdir
 from os.path import dirname, join, exists
+from typing import Optional
+
 from mock import Mock
+from mock.mock import call
 from neon_utils.user_utils import get_default_user_config
 from ovos_utils.messagebus import FakeBus
 from mycroft_bus_client import Message
-from neon_utils.configuration_utils import get_neon_local_config, get_neon_user_config
+from neon_utils.configuration_utils import get_neon_local_config,\
+    get_neon_user_config
 from mycroft.skills.skill_loader import SkillLoader
 
 
 class TestSkill(unittest.TestCase):
     test_message = Message("test", {}, {"neon_in_request": True})
+
     @classmethod
     def setUpClass(cls) -> None:
         bus = FakeBus()
@@ -306,7 +309,7 @@ class TestSkill(unittest.TestCase):
         test_message.data = {"slower": "slower"}
         self.skill.handle_speech_speed(test_message)
         self.skill.speak_dialog.assert_called_with("speech_speed_slower",
-                                                        private=True)
+                                                   private=True)
         self.assertLess(test_message.context["user_profiles"][0]
                         ["speech"]["speed_multiplier"], 1.0)
         # Speak min speed
@@ -321,7 +324,112 @@ class TestSkill(unittest.TestCase):
                          self.skill.MIN_SPEECH_SPEED)
 
     def test_handle_change_location_timezone(self):
-        pass
+        real_ask_yesno = self.skill.ask_yesno
+        self.skill.ask_yesno = Mock(return_value="no")
+
+        test_profile = get_default_user_config()
+        test_profile["user"]["username"] = "test_user"
+        test_message: Optional[Message] = None
+
+        def _init_test_message(voc, location):
+            nonlocal test_message
+            test_message = Message("test", {voc: voc,
+                                            "Place": location},
+                                   {"username": "test_user",
+                                    "user_profiles": [test_profile]})
+
+        # Change location same tz
+        _init_test_message("location", "new york")
+        self.skill.handle_change_location_timezone(test_message)
+        self.skill.ask_yesno.assert_called_once_with(
+            "also_change_location_tz", {"type": "timezone", "new": "new york"})
+        self.skill.speak_dialog.assert_called_once_with(
+            "change_location_tz", {"type": "location", "location": "New York"},
+            private=True)
+        profile = test_message.context["user_profiles"][0]
+        unchanged = ("tz", "utc", "country")
+        for setting in unchanged:
+            self.assertEqual(profile["location"][setting],
+                             test_profile["location"][setting])
+        self.assertEqual(profile["location"]["city"], "New York")
+        self.assertEqual(profile["location"]["state"], "New York")
+        self.assertEqual(profile["location"]["lat"], 40.7127281)
+        self.assertEqual(profile["location"]["lng"], -74.0060152)
+        self.skill.ask_yesno.reset_mock()
+        self.skill.speak_dialog.reset_mock()
+
+        # Change tz same location
+        _init_test_message("timezone", "phoenix")
+        self.skill.handle_change_location_timezone(test_message)
+        self.skill.ask_yesno.assert_called_once_with(
+            "also_change_location_tz", {"type": "location", "new": "phoenix"})
+        self.skill.speak_dialog.assert_called_once_with(
+            "change_location_tz", {"type": "timezone", "location": "UTC -7.0"},
+            private=True)
+        profile = test_message.context["user_profiles"][0]
+        unchanged = ("city", "state", "country", "lat", "lng")
+        for setting in unchanged:
+            self.assertEqual(profile["location"][setting],
+                             test_profile["location"][setting])
+        self.assertEqual(profile["location"]["tz"], "America/Phoenix")
+        self.assertEqual(profile["location"]["utc"], -7.0)
+        self.skill.speak_dialog.reset_mock()
+        self.skill.ask_yesno = Mock(return_value="yes")
+
+        # Change location and tz
+        _init_test_message("location", "honolulu")
+        self.skill.handle_change_location_timezone(test_message)
+        self.skill.ask_yesno.assert_called_once_with(
+            "also_change_location_tz", {"type": "timezone", "new": "honolulu"})
+        self.skill.speak_dialog.assert_has_calls((
+            call("change_location_tz",
+                 {"type": "location", "location": "Honolulu"}, private=True),
+            call("change_location_tz",
+                 {"type": "timezone", "location": "UTC -10.0"}, private=True)),
+            True)
+
+        profile = test_message.context["user_profiles"][0]
+        unchanged = ("country",)
+        for setting in unchanged:
+            self.assertEqual(profile["location"][setting],
+                             test_profile["location"][setting])
+        self.assertEqual(profile["location"]["city"], "Honolulu")
+        self.assertEqual(profile["location"]["state"], "Hawaii")
+        self.assertEqual(profile["location"]["lat"], 21.2890997)
+        self.assertEqual(profile["location"]["lng"], -157.717299)
+        self.assertEqual(profile["location"]["tz"], "Pacific/Honolulu")
+        self.assertEqual(profile["location"]["utc"], -10.0)
+
+        self.skill.speak_dialog.reset_mock()
+        self.skill.ask_yesno.reset_mock()
+
+        # Change tz and location
+        _init_test_message("timezone", "phoenix")
+        self.skill.handle_change_location_timezone(test_message)
+        self.skill.ask_yesno.assert_called_once_with(
+            "also_change_location_tz", {"type": "location", "new": "phoenix"})
+
+        self.skill.speak_dialog.assert_has_calls((
+            call("change_location_tz",
+                 {"type": "location", "location": "Phoenix"}, private=True),
+            call("change_location_tz",
+                 {"type": "timezone", "location": "UTC -7.0"}, private=True)),
+            True)
+
+        profile = test_message.context["user_profiles"][0]
+        unchanged = ("country",)
+        for setting in unchanged:
+            self.assertEqual(profile["location"][setting],
+                             test_profile["location"][setting])
+
+        self.assertEqual(profile["location"]["city"], "Phoenix")
+        self.assertEqual(profile["location"]["state"], "Arizona")
+        self.assertEqual(profile["location"]["lat"], 33.4484367)
+        self.assertEqual(profile["location"]["lng"], -112.074141)
+        self.assertEqual(profile["location"]["tz"], "America/Phoenix")
+        self.assertEqual(profile["location"]["utc"], -7.0)
+
+        self.skill.ask_yesno = real_ask_yesno
 
     def test_get_timezone_from_location(self):
         name, offset = \
