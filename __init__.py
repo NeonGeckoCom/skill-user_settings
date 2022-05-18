@@ -62,7 +62,8 @@ class ControlsSkill(NeonSkill):
         else:
             updated_prefs = {"units": {"measure": new_unit}}
             self.update_profile(updated_prefs, message)
-            self.speak_dialog("units_changed", {"unit": new_unit},
+            self.speak_dialog("units_changed",
+                              {"unit": self.translate(f"word_{new_unit}")},
                               private=True)
 
     @intent_handler(IntentBuilder("ChangeTime").require("change")
@@ -80,12 +81,27 @@ class ControlsSkill(NeonSkill):
         current_setting = get_user_prefs(message)["units"]["time"]
         if new_setting == current_setting:
             self.speak_dialog("time_format_already_set",
-                              {"scale": new_setting}, private=True)
+                              {"scale": str(new_setting)}, private=True)
         else:
             updated_prefs = {"units": {"time": new_setting}}
             self.update_profile(updated_prefs, message)
             self.speak_dialog("time_format_changed",
-                              {"scale": new_setting}, private=True)
+                              {"scale": str(new_setting)}, private=True)
+
+    @intent_handler(IntentBuilder("SetHesitation").one_of("permit", "deny")
+                    .require("hesitation").build())
+    def handle_speak_hesitation(self, message: Message):
+        """
+        Handle a request for Neon to speak something when intent processing
+        may take some time
+        :param message: Message associated with request
+        """
+        enabled = True if message.data.get("permit") else False
+        self.update_profile({"response_mode": {"hesitation": enabled}})
+        if enabled:
+            self.speak_dialog("hesitation_enabled", private=True)
+        else:
+            self.speak_dialog("hesitation_disabled", private=True)
 
     @intent_handler(IntentBuilder("Transcription").one_of("permit", "deny")
                     .one_of("audio", "text").require("retention").build())
@@ -158,20 +174,6 @@ class ControlsSkill(NeonSkill):
         elif speed < current_speed:
             self.speak_dialog("speech_speed_slower", private=True)
 
-    @intent_handler(IntentBuilder("Hesitation").one_of("permit", "deny")
-                    .require("hesitation").build())
-    def handle_speak_hesitation(self, message: Message):
-        """
-        Handle a request for Neon to speak something when intent processing
-        may take some time
-        :param message: Message associated with request
-        """
-        enabled = True if message.data.get("permit") else False
-        self.update_profile({"response_mode": {"hesitation": enabled}})
-        if enabled:
-            self.speak_dialog("hesitation_enabled", private=True)
-        else:
-            self.speak_dialog("hesitation_disabled")
 
 #### TODO: Test above handlers and then continue DM
 
