@@ -25,22 +25,23 @@
 # LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
+import os
+import shutil
 import unittest
-from datetime import datetime
+from copy import deepcopy
 
+from datetime import datetime
 from os import mkdir
 from os.path import dirname, join, exists
 from typing import Optional
-
 from dateutil.tz import gettz
 from mock import Mock
 from mock.mock import call
-from neon_utils.user_utils import get_default_user_config
 from ovos_utils.messagebus import FakeBus
 from mycroft_bus_client import Message
 from neon_utils.configuration_utils import get_neon_local_config,\
     get_neon_user_config
+
 from mycroft.skills.skill_loader import SkillLoader
 
 
@@ -49,16 +50,17 @@ class TestSkill(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+        # Define a directory to use for testing
+        cls.test_fs = join(dirname(__file__), "skill_fs")
+        if not exists(cls.test_fs):
+            mkdir(cls.test_fs)
+        os.environ["NEON_CONFIG_PATH"] = cls.test_fs
+
         bus = FakeBus()
         bus.run_in_thread()
         skill_loader = SkillLoader(bus, dirname(dirname(__file__)))
         skill_loader.load()
         cls.skill = skill_loader.instance
-
-        # Define a directory to use for testing
-        cls.test_fs = join(dirname(__file__), "skill_fs")
-        if not exists(cls.test_fs):
-            mkdir(cls.test_fs)
 
         # Override the configuration and fs paths to use the test directory
         cls.skill._local_config = get_neon_local_config(cls.test_fs)
@@ -72,9 +74,14 @@ class TestSkill(unittest.TestCase):
         cls.skill.speak = Mock()
         cls.skill.speak_dialog = Mock()
 
+    @classmethod
+    def tearDownClass(cls) -> None:
+        shutil.rmtree(cls.test_fs)
+
     def setUp(self):
         self.skill.speak.reset_mock()
         self.skill.speak_dialog.reset_mock()
+        self.user_config = deepcopy(self.skill.user_config.content)
 
     def test_00_skill_init(self):
         # Test any parameters expected to be set in init or initialize methods
@@ -83,7 +90,7 @@ class TestSkill(unittest.TestCase):
         self.assertIsInstance(self.skill, NeonSkill)
 
     def test_handle_unit_change(self):
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_profile["units"]["measure"] = "imperial"
         test_message = Message("test", {"imperial": "imperial"},
@@ -125,7 +132,7 @@ class TestSkill(unittest.TestCase):
             "imperial")
 
     def test_handle_time_format_change(self):
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_profile["units"]["time"] = 12
         test_message = Message("test", {"half": "12 hour"},
@@ -162,7 +169,7 @@ class TestSkill(unittest.TestCase):
             test_message.context["user_profiles"][0]["units"]["time"], 12)
 
     def test_handle_speech_hesitation(self):
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_profile["response_mode"]["hesitation"] = True
         test_message = Message("test", {"permit": "enable"},
@@ -196,7 +203,7 @@ class TestSkill(unittest.TestCase):
                         ["response_mode"]["hesitation"])
 
     def test_handle_transcription_retention(self):
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_profile["privacy"]["save_audio"] = True
         test_profile["privacy"]["save_text"] = True
@@ -276,7 +283,7 @@ class TestSkill(unittest.TestCase):
                         ["privacy"]["save_text"])
 
     def test_handle_speak_speed(self):
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {"faster": "faster"},
                                {"username": "test_user",
@@ -328,7 +335,7 @@ class TestSkill(unittest.TestCase):
         real_ask_yesno = self.skill.ask_yesno
         self.skill.ask_yesno = Mock(return_value="no")
 
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_message: Optional[Message] = None
 
@@ -433,7 +440,7 @@ class TestSkill(unittest.TestCase):
         self.skill.ask_yesno = real_ask_yesno
 
     def test_handle_change_dialog_option(self):
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {"limited": "limited"},
                                {"username": "test_user",
@@ -471,7 +478,7 @@ class TestSkill(unittest.TestCase):
                                                    private=True)
 
     def test_handle_say_my_name(self):
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_message = Message("test", {},
                                {"username": "test_user",
                                 "user_profiles": [test_profile]})
@@ -567,11 +574,12 @@ class TestSkill(unittest.TestCase):
                         "name": "test_user"}, private=True)
 
     def test_handle_say_my_email(self):
-        test_profile = get_default_user_config()
-        test_profile["username"] = "test_user"
+        test_profile = self.user_config
+        test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {},
                                {"username": "test_user",
                                 "user_profiles": [test_profile]})
+        self.assertFalse(test_profile["user"]["email"])
         self.skill.handle_say_my_email(test_message)
         self.skill.speak_dialog.assert_called_with("email_not_known",
                                                    private=True)
@@ -583,8 +591,8 @@ class TestSkill(unittest.TestCase):
                                                    private=True)
 
     def test_handle_say_my_location(self):
-        test_profile = get_default_user_config()
-        test_profile["username"] = "test_user"
+        test_profile = self.user_config
+        test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {},
                                {"username": "test_user",
                                 "user_profiles": [test_profile]})
@@ -601,7 +609,7 @@ class TestSkill(unittest.TestCase):
             "location_is", {"location": "Kyiv, Ukraine"}, private=True)
 
     def test_handle_set_my_birthday(self):
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {"utterance": "my birthday is today"},
                                {"username": "test_user",
@@ -623,7 +631,7 @@ class TestSkill(unittest.TestCase):
     def test_handle_set_my_email(self):
         real_ask_yesno = self.skill.ask_yesno
         self.skill.ask_yesno = Mock(return_value="no")
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {},
                                {"username": "test_user",
@@ -706,7 +714,7 @@ class TestSkill(unittest.TestCase):
         self.skill.ask_yesno = real_ask_yesno
 
     def test_handle_set_my_name(self):
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {},
                                {"username": "test_user",
@@ -822,36 +830,36 @@ class TestSkill(unittest.TestCase):
                          ["user"]["preferred_name"], "Dan")
 
     def test_get_name_parts(self):
-        user_profile = get_default_user_config()
+        user_profile = self.user_config
         # First none existing
-        name = self.skill._get_name_parts("first", user_profile)
+        name = self.skill._get_name_parts("first", user_profile["user"])
         self.assertEqual(name, {"first_name": "first",
                                 "full_name": "first"})
 
         # First and Last override First, existing Middle
         user_profile["user"]["first_name"] = "old"
         user_profile["user"]["middle_name"] = "middle"
-        name = self.skill._get_name_parts("first last", user_profile)
+        name = self.skill._get_name_parts("first last", user_profile["user"])
         self.assertEqual(name, {"first_name": "first",
-                                "middle_name": "middle",
                                 "last_name": "last",
                                 "full_name": "first middle last"})
         # First Middle Last override existing
         user_profile["user"]["first_name"] = "old"
         user_profile["user"]["middle_name"] = "old"
         user_profile["user"]["last_name"] = "old"
-        name = self.skill._get_name_parts("first middle last", user_profile)
+        name = self.skill._get_name_parts("first middle last",
+                                          user_profile["user"])
         self.assertEqual(name, {"first_name": "first",
                                 "middle_name": "middle",
                                 "last_name": "last",
                                 "full_name": "first middle last"})
         # Longer name override existing
         name = self.skill._get_name_parts("first-name middle last senior",
-                                          user_profile)
-        self.assertEqual(name, {"first_name": "first",
+                                          user_profile["user"])
+        self.assertEqual(name, {"first_name": "first-name",
                                 "middle_name": "middle",
                                 "last_name": "last senior",
-                                "full_name": "first middle last senior"})
+                                "full_name": "first-name middle last senior"})
 
     def test_get_timezone_from_location(self):
         name, offset = \

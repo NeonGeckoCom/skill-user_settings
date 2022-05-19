@@ -520,9 +520,11 @@ class ControlsSkill(NeonSkill):
     def _get_name_parts(name: str, user_profile: dict) -> dict:
         """
         Parse a name string into first/middle/last components
+        :param user_profile: user preferences dict with keys:
+            ('first_name', 'middle_name', 'last_name')
         :returns: dict of positional names extracted
         """
-        name_parts = name.title().split()
+        name_parts = name.split()
         if len(name_parts) == 1:
             name = {"first_name": name}
         elif len(name_parts) == 2:
