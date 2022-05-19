@@ -30,7 +30,7 @@ from datetime import datetime
 from typing import Optional, Tuple
 from adapt.intent import IntentBuilder
 from dateutil.tz import gettz
-from lingua_franca.format import nice_date
+from lingua_franca import load_language
 from mycroft_bus_client import Message
 from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
@@ -281,7 +281,8 @@ class ControlsSkill(NeonSkill):
                     profile["user"]["middle_name"],
                     profile["user"]["last_name"],
                     profile["user"]["preferred_name"],
-                    profile["user"]["full_name"])):
+                    profile["user"]["full_name"],
+                    profile["user"]["username"])):
             # TODO: Use get_response to ask for the user's name
             self.speak_dialog(
                 "name_not_known",
@@ -352,7 +353,7 @@ class ControlsSkill(NeonSkill):
         location_prefs = get_user_prefs(message)["location"]
         friendly_location = ", ".join([x for x in
                                        (location_prefs["city"],
-                                        location_prefs["state"],
+                                        location_prefs["state"] or
                                         location_prefs["country"])])
         self.speak_dialog("location_is", {"location": friendly_location},
                           private=True)
@@ -366,19 +367,22 @@ class ControlsSkill(NeonSkill):
         """
         if not self.neon_in_request(message):
             return
+        load_language(self.lang)
 
         user_tz = gettz(self.preference_location(message)['tz']) or self.sys_tz
         now_time = datetime.now(user_tz)
         try:
             birth_date, _ = extract_datetime(message.data.get("utterance"),
-                                             lang=self.lang)
+                                             now_time, self.lang)
         except IndexError:
             self.speak_dialog("birthday_not_heard", private=True)
             return
 
         formatted_birthday = birth_date.strftime("%Y/%m/%d")
-        anchor_date = now_time.replace(year=birth_date.year)
-        speakable_birthday = nice_date(birth_date, now=anchor_date)
+        # TODO: Update to use LF when method added for month + date format
+        # anchor_date = now_time.replace(year=birth_date.year)
+        # speakable_birthday = nice_date(birth_date, now=anchor_date)
+        speakable_birthday = birth_date.strftime("%B %-d")
 
         self.update_profile({"user": {"dob": formatted_birthday}}, message)
         self.speak_dialog("birthday_confirmed",
@@ -439,153 +443,104 @@ class ControlsSkill(NeonSkill):
         else:
             self.speak_dialog("email_not_confirmed", private=True)
 
-    def profile_intent(self, message):
-        # TODO: Refactor this intent into handle_set_my_name
-        """Intent to change profile information"""
-        if self.neon_in_request(message):
-            preference_user = self.preference_user(message)
-            name = message.data.get("profile", "").title()
-            name_count = name.split(" ")
+    @intent_handler(IntentBuilder("SetMyName").optionally("change")
+                    .require("my").require("name").require("Setting")
+                    .build())
+    @intent_handler(IntentBuilder("MyNameIs").require("my_name_is")
+                    .require("Name").build())
+    def handle_set_my_name(self, message: Message):
+        """
+        Handle a request to set a user's name
+        :param message: Message associated with request
+        """
+        if not self.neon_in_request(message):
+            return
+        utterance = message.data.get("utterance")
+        name = message.data.get("Setting") or message.data.get("Name")
+        if self.voc_match(utterance, "first_name"):
+            request = "first_name"
+            name = name.title()
+        elif self.voc_match(utterance, "middle_name"):
+            name = name.title()
+            request = "middle_name"
+        elif self.voc_match(utterance, "last_name"):
+            name = name.title()
+            request = "last_name"
+        elif self.voc_match(utterance, "preferred_name"):
+            name = name.title()
+            request = "preferred_name"
+        # TODO: Consider setting username and updating all references
+        # elif self.voc_match(utterance, "username"):
+        #     request = "username"
+        else:
+            name = name.title()
+            request = None
 
-            # Catch intent match with no name
-            if len(name_count) == 0 or not name_count:
-                self.speak("I did not catch what you were trying to say. Please try again", private=True)
+        user_profile = get_user_prefs(message)["user"]
+
+        if request:
+            if name == user_profile[request]:
+                self.speak_dialog(
+                    "name_not_changed",
+                    {"position": self.translate(f"word_{request}"),
+                     "name": name}, private=True)
             else:
-                user_dict = self.build_user_dict(message)
-                # self.create_signal("NGI_YAML_user_update")
-                position = message.data.get("First")
+                name_parts = (name if request == n else user_profile.get(n)
+                              for n in ("first_name", "middle_name",
+                                        "last_name"))
+                full_name = " ".join((n for n in name_parts if n))
+                self.update_profile({"user": {request: name,
+                                              "full_name": full_name}},
+                                    message)
+                self.speak_dialog(
+                    "name_set_part",
+                    {"position": self.translate(f"word_{request}"),
+                     "name": name}, private=True)
+        else:
+            preferred_name = user_profile["preferred_name"] or name
+            name_parts = self._get_name_parts(name, user_profile)
+            if preferred_name == user_profile["first_name"] and \
+                    "first_name" in name_parts:
+                preferred_name = name_parts["first_name"]
+            updated_user_profile = {"preferred_name": preferred_name,
+                                    **name_parts}
+            if all((user_profile[n] == updated_user_profile.get(n) for n in
+                    ("first_name", "middle_name", "last_name"))):
+                self.speak_dialog("name_not_changed",
+                                  {"position": self.translate(f"word_name"),
+                                   "name": name})
+            else:
+                self.update_profile({"user": updated_user_profile}, message)
+                self.speak_dialog("name_set_full",
+                                  {"nick": preferred_name,
+                                   "name": name_parts["full_name"]},
+                                  private=True)
 
-                # User specified "First/Middle/Last" Name
-                if position:
-                    LOG.debug(f"DM: Name position parameter given - {position}")
-                    LOG.debug(f'DM: old= {user_dict["first_name"]} {user_dict["middle_name"]} {user_dict["last_name"]}')
-                    if position == "first":
-                        user_dict["first_name"] = name
-
-                        if not self.server:
-                            self.user_config.update_yaml_file("user", "first_name", name, True)
-                    elif position in ['middle', 'second']:
-                        user_dict["middle_name"] = name
-                        if not self.server:
-                            self.user_config.update_yaml_file("user", "middle_name", name, True)
-                    elif position == "last":
-                        user_dict["last_name"] = name
-                        if not self.server:
-                            self.user_config.update_yaml_file("user", "last_name", name, True)
-                    elif position == "preferred":
-                        user_dict["preferred_name"] = name
-                        if not self.server:
-                            self.user_config.update_yaml_file("user", "preferred_name", name, False)
-
-                    # Put together full name
-                    if isinstance(user_dict['first_name'], str) and \
-                            isinstance(user_dict['middle_name'], str) and isinstance(user_dict['last_name'], str):
-                        user_dict["full_name"] = ' '.join([user_dict["first_name"],
-                                                          user_dict["middle_name"],
-                                                          user_dict["last_name"]])
-                    elif isinstance(user_dict['first_name'], str) and isinstance(user_dict['last_name'], str):
-                        user_dict["full_name"] = ' '.join([user_dict["first_name"],
-                                                           user_dict["last_name"]])
-                    elif isinstance(user_dict['first_name'], str):
-                        user_dict["full_name"] = user_dict["first_name"]
-                    else:
-                        user_dict["full_name"] = ""
-                        LOG.warning(f"Error with name! {user_dict['first_name']} {user_dict['middle_name']} "
-                                    f"{user_dict['last_name']}")
-
-                    if self.server:
-                        LOG.info(user_dict)
-                        self.socket_emit_to_server("update profile", ["skill", user_dict,
-                                                                      message.context["klat_data"]["request_id"]])
-                    elif user_dict["full_name"]:
-                        self.user_config.update_yaml_file("user", "full_name", user_dict["full_name"], False)
-
-                # Handle a full name that can't be parsed into First/Middle/Last
-                elif len(name_count) > 3:
-                    if self.server:
-                        # TODO: Maybe parse this better to use all name_count fields DM
-                        user_dict['full_name'] = name
-                        user_dict['first_name'] = name_count[1]
-                        user_dict['middle_name'] = name_count[2]
-                        user_dict['last_name'] = name_count[3]
-                        LOG.info(user_dict)
-                        self.socket_emit_to_server("update profile", ["skill", user_dict,
-                                                                      message.context["klat_data"]["request_id"]])
-                    else:
-                        # TODO: Better way to handle this without a self param (or use a dict)
-                        self.speak("If I understood correctly, your name is a little longer "
-                                   "than I was expecting. I will save "
-                                   "your full name in the settings and will address you as "
-                                   + name_count[0] + ". Is that okay?", private=True)
-                        self.full_name = name
-                        self.create_signal("PS_longerFullName")
-                        self.await_confirmation(self.get_utterance_user(message), "longerFullName")
-                        return
-
-                # Handle a full name (First/Middle/Last)
-                elif len(name_count) == 3:
-                    if self.server:
-                        user_dict['middle_name'] = name_count[1]
-                        user_dict['last_name'] = name_count[2]
-                        user_dict['full_name'] = name
-                        LOG.info(user_dict)
-                        self.socket_emit_to_server("update profile", ["skill", user_dict,
-                                                                      message.context["klat_data"]["request_id"]])
-                    else:
-                        self.user_config.update_yaml_file("user", "middle_name", name_count[1], True)
-                        self.user_config.update_yaml_file("user", "last_name", name_count[2], True)
-                        LOG.info(name)
-                        self.user_config.update_yaml_file("user", "full_name", name)
-                # Handle a First/Last Full Name
-                elif len(name_count) == 2:
-                    if self.server:
-                        user_dict['middle_name'] = ""
-                        user_dict['last_name'] = name_count[1]
-                        user_dict['full_name'] = name
-                        LOG.info(user_dict)
-                        self.socket_emit_to_server("update profile", ["skill", user_dict,
-                                                                      message.context["klat_data"]["request_id"]])
-                    else:
-                        self.user_config.update_yaml_file("user", "last_name", name_count[1], True)
-                        self.user_config.update_yaml_file("user", "middle_name", '', True)
-                        self.user_config.update_yaml_file("user", "full_name", name)
-
-                # First name doesn't match existing (possibly empty) profile value
-                if (name_count[0] != preference_user["first_name"] or not preference_user["first_name"]) and \
-                        not position:
-                    if self.server:
-                        user_dict['first_name'] = name_count[0]
-                        user_dict['preferred_name'] = name_count[0]
-                        LOG.info(user_dict)
-                        nick = self.get_utterance_user(message)
-                        message.context["nick_profiles"][nick] = user_dict
-                        self.socket_emit_to_server("update profile", ["skill", user_dict,
-                                                                      message.context["klat_data"]["request_id"]])
-                    else:
-                        self.user_config.update_yaml_file("user", "first_name", name_count[0], True)
-                        full_name = name_count[0] + ' ' + \
-                            preference_user['middle_name'] + ' ' + \
-                            preference_user['last_name']
-
-                        if not preference_user["preferred_name"] or preference_user["preferred_name"] != name_count[0]:
-                            self.user_config.update_yaml_file("user", "preferred_name", name_count[0], True)
-
-                        self.user_config.update_yaml_file("user", "full_name", full_name)
-
-                    new_name = name_count[0]
-                    LOG.debug(">>> Profile Intent Server End")
-                    self.speak_dialog("new.name", {'name': new_name}, private=True)
-                else:
-                    if position:
-                        self.speak_dialog("position.name", {"position": position, "name": name}, private=True)
-                    elif len(name_count) > 1:
-                        self.speak("I noted the information, " + name_count[0], private=True)
-                    else:
-                        self.speak("Don't worry, " + name_count[0] + ". I remember. Always pleased to assist you.",
-                                   private=True)
-                if not self.server:
-                    self.bus.emit(Message('check.yml.updates',
-                                          {"modified": ["ngi_user_info"]}, {"origin": "personal.neon"}))
+    @staticmethod
+    def _get_name_parts(name: str, user_profile: dict) -> dict:
+        """
+        Parse a name string into first/middle/last components
+        :returns: dict of positional names extracted
+        """
+        name_parts = name.title().split()
+        if len(name_parts) == 1:
+            name = {"first_name": name}
+        elif len(name_parts) == 2:
+            name = {"first_name": name_parts[0],
+                    "last_name": name_parts[1]}
+        elif len(name_parts) == 3:
+            name = {"first_name": name_parts[0],
+                    "middle_name": name_parts[1],
+                    "last_name": name_parts[2]}
+        else:
+            LOG.warning(f"Longer name than expected: {name}")
+            name = {"first_name": name_parts[0],
+                    "middle_name": name_parts[1],
+                    "last_name": " ".join(name_parts[2:])}
+        name_parts = (name.get(n) or user_profile.get(n)
+                      for n in ("first_name", "middle_name", "last_name"))
+        name["full_name"] = " ".join((n for n in name_parts if n))
+        return name
 
     @staticmethod
     def _get_timezone_from_location(location: dict) -> \
