@@ -1,1 +1,0 @@
-(login|signin|log in|sign in)( as|) (?P<login_name>.*)

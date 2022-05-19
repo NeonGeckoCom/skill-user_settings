@@ -468,6 +468,30 @@ class TestSkill(unittest.TestCase):
                                                    {"response": "random"},
                                                    private=True)
 
+    def test_handle_say_my_name(self):
+        # TODO
+        pass
+
+    def test_handle_say_my_email(self):
+        # TODO
+        pass
+
+    def test_handle_say_my_location(self):
+        # TODO
+        pass
+
+    def test_handle_set_my_birthday(self):
+        # TODO
+        pass
+
+    def test_handle_set_my_email(self):
+        # TODO
+        pass
+
+    def test_handle_set_my_name(self):
+        # TODO
+        pass
+
     def test_get_timezone_from_location(self):
         name, offset = \
             self.skill._get_timezone_from_location(
