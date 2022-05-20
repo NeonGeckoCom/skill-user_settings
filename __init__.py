@@ -26,8 +26,11 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from datetime import datetime
 from typing import Optional, Tuple
 from adapt.intent import IntentBuilder
+from dateutil.tz import gettz
+from lingua_franca import load_language
 from mycroft_bus_client import Message
 from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
@@ -35,6 +38,8 @@ from neon_utils.logger import LOG
 from neon_utils.user_utils import get_user_prefs
 
 from mycroft.skills.core import intent_handler, intent_file_handler
+from mycroft.util.parse import extract_datetime
+from ovos_utils.file_utils import read_vocab_file
 
 
 class ControlsSkill(NeonSkill):
@@ -259,6 +264,285 @@ class ControlsSkill(NeonSkill):
         self.speak_dialog("dialog_mode_changed",
                           {"response": self.translate(new_dialog)},
                           private=True)
+
+    @intent_handler(IntentBuilder("SayMyName").require("tell_me_my")
+                    .require("name").build())
+    def handle_say_my_name(self, message: Message):
+        """
+        Handle a request to read back a user's name
+        :param message: Message associated with request
+        """
+        if not self.neon_in_request(message):
+            return
+        utterance = message.data.get("utterance")
+        profile = get_user_prefs(message)
+
+        if not any((profile["user"]["first_name"],
+                    profile["user"]["middle_name"],
+                    profile["user"]["last_name"],
+                    profile["user"]["preferred_name"],
+                    profile["user"]["full_name"],
+                    profile["user"]["username"])):
+            # TODO: Use get_response to ask for the user's name
+            self.speak_dialog(
+                "name_not_known",
+                {"name_position": self.translate("word_name")},
+                private=True)
+            return
+        if self.voc_match(utterance, "first_name"):
+            name = profile["user"]["first_name"]
+            request = "word_first_name"
+        elif self.voc_match(utterance, "middle_name"):
+            name = profile["user"]["middle_name"]
+            request = "word_middle_name"
+        elif self.voc_match(utterance, "last_name"):
+            name = profile["user"]["last_name"]
+            request = "word_last_name"
+        elif self.voc_match(utterance, "preferred_name"):
+            name = profile["user"]["preferred_name"]
+            request = "word_preferred_name"
+        elif self.voc_match(utterance, "full_name"):
+            name = profile["user"]["full_name"]
+            request = "word_full_name"
+        elif self.voc_match(utterance, "username"):
+            name = profile["user"]["username"]
+            request = "word_username"
+        else:
+            name = profile["user"]["preferred_name"] or \
+                   profile["user"]["first_name"] or \
+                   profile["user"]["username"]
+            request = "word_name"
+
+        if not name:
+            # TODO: Use get_response to ask for the user's name
+            self.speak_dialog("name_not_known",
+                              {"name_position": self.translate(request)},
+                              private=True)
+        else:
+            self.speak_dialog("name_is",
+                              {"name_position": self.translate(request),
+                               "name": name}, private=True)
+
+    @intent_handler(IntentBuilder("SayMyEmail").require("tell_me_my")
+                    .require("email").build())
+    def handle_say_my_email(self, message: Message):
+        """
+        Handle a request to read back the user's email address
+        :param message: Message associated with request
+        """
+        if not self.neon_in_request(message):
+            return
+        email_address = get_user_prefs(message)["user"]["email"]
+        if not email_address:
+            # TODO: Use get_response to ask for the user's email
+            self.speak_dialog("email_not_known", private=True)
+        else:
+            self.speak_dialog("email_is", {"email": email_address},
+                              private=True)
+
+    @intent_handler(IntentBuilder("SayMyLocation").require("tell_me_my")
+                    .require("location").build())
+    @intent_file_handler("where_am_i.intent")
+    def handle_say_my_location(self, message: Message):
+        """
+        Handle a request to read back the user's location
+        :param message: Message associated with request
+        """
+        if not self.neon_in_request(message):
+            return
+        location_prefs = get_user_prefs(message)["location"]
+        friendly_location = ", ".join([x for x in
+                                       (location_prefs["city"],
+                                        location_prefs["state"] or
+                                        location_prefs["country"])])
+        self.speak_dialog("location_is", {"location": friendly_location},
+                          private=True)
+
+    @intent_handler(IntentBuilder("SetMyBirthday").require("my")
+                    .require("birthday").build())
+    def handle_set_my_birthday(self, message: Message):
+        """
+        Handle a request to set a user's birthday
+        :param message: Message associated with request
+        """
+        if not self.neon_in_request(message):
+            return
+        load_language(self.lang)
+
+        user_tz = gettz(self.preference_location(message)['tz']) or self.sys_tz
+        now_time = datetime.now(user_tz)
+        try:
+            birth_date, _ = extract_datetime(message.data.get("utterance"),
+                                             now_time, self.lang)
+        except IndexError:
+            self.speak_dialog("birthday_not_heard", private=True)
+            return
+
+        formatted_birthday = birth_date.strftime("%Y/%m/%d")
+        # TODO: Update to use LF when method added for month + date format
+        # anchor_date = now_time.replace(year=birth_date.year)
+        # speakable_birthday = nice_date(birth_date, now=anchor_date)
+        speakable_birthday = birth_date.strftime("%B %-d")
+
+        self.update_profile({"user": {"dob": formatted_birthday}}, message)
+        self.speak_dialog("birthday_confirmed",
+                          {"birthday": speakable_birthday}, private=True)
+
+        if birth_date.month == now_time.month and \
+                birth_date.day == now_time.day:
+            self.speak_dialog("happy_birthday", private=True)
+
+    @intent_handler(IntentBuilder("SetMyEmail").optionally("change")
+                    .require("my").require("email").require("Setting")
+                    .build())
+    def handle_set_my_email(self, message: Message):
+        """
+       Handle a request to set a user's email address
+       :param message: Message associated with request
+       """
+        # Parse actual email address from intent
+        extracted = message.data.get("Setting")
+        email_addr: str = extracted.split()[0] + \
+            message.data.get("utterance").rsplit(extracted.split()[0])[1]
+        dot = read_vocab_file(self.find_resource("dot" + '.voc', 'vocab',
+                                                 lang=self.lang))[0][0]
+        at = read_vocab_file(self.find_resource("at" + '.voc', 'vocab',
+                                                lang=self.lang))[0][0]
+        email_words = email_addr.split()
+        if dot in email_words:
+            email_words[email_words.index(dot)] = "."
+        if at in email_words:
+            email_words[email_words.index(at)] = "@"
+        email_addr = "".join(email_words)
+        LOG.info(email_addr)
+
+        if '@' not in email_addr or '.' not in email_addr.split('@')[1]:
+            self.speak_dialog("email_set_error", private=True)
+            return
+
+        current_email = get_user_prefs(message)["user"]["email"]
+        if current_email and email_addr == current_email:
+            self.speak_dialog("email_already_set_same",
+                              {"email": current_email}, private=True)
+            return
+        if current_email:
+            if self.ask_yesno("email_overwrite", {"old": current_email,
+                                                  "new": email_addr}) == "yes":
+                self.update_profile({"user": {"email": email_addr}})
+                self.speak_dialog("email_set", {"email": email_addr},
+                                  private=True)
+            else:
+                self.speak_dialog("email_not_changed",
+                                  {"email": current_email}, private=True)
+            return
+        if self.ask_yesno("email_confirmation",
+                          {"email": email_addr}) == "yes":
+            self.update_profile({"user": {"email": email_addr}})
+            self.speak_dialog("email_set", {"email": email_addr},
+                              private=True)
+        else:
+            self.speak_dialog("email_not_confirmed", private=True)
+
+    @intent_handler(IntentBuilder("SetMyName").optionally("change")
+                    .require("my").require("name").require("Setting")
+                    .build())
+    @intent_handler(IntentBuilder("MyNameIs").require("my_name_is")
+                    .require("Name").build())
+    def handle_set_my_name(self, message: Message):
+        """
+        Handle a request to set a user's name
+        :param message: Message associated with request
+        """
+        if not self.neon_in_request(message):
+            return
+        utterance = message.data.get("utterance")
+        name = message.data.get("Setting") or message.data.get("Name")
+        if self.voc_match(utterance, "first_name"):
+            request = "first_name"
+            name = name.title()
+        elif self.voc_match(utterance, "middle_name"):
+            name = name.title()
+            request = "middle_name"
+        elif self.voc_match(utterance, "last_name"):
+            name = name.title()
+            request = "last_name"
+        elif self.voc_match(utterance, "preferred_name"):
+            name = name.title()
+            request = "preferred_name"
+        # TODO: Consider setting username and updating all references
+        # elif self.voc_match(utterance, "username"):
+        #     request = "username"
+        else:
+            name = name.title()
+            request = None
+
+        user_profile = get_user_prefs(message)["user"]
+
+        if request:
+            if name == user_profile[request]:
+                self.speak_dialog(
+                    "name_not_changed",
+                    {"position": self.translate(f"word_{request}"),
+                     "name": name}, private=True)
+            else:
+                name_parts = (name if request == n else user_profile.get(n)
+                              for n in ("first_name", "middle_name",
+                                        "last_name"))
+                full_name = " ".join((n for n in name_parts if n))
+                self.update_profile({"user": {request: name,
+                                              "full_name": full_name}},
+                                    message)
+                self.speak_dialog(
+                    "name_set_part",
+                    {"position": self.translate(f"word_{request}"),
+                     "name": name}, private=True)
+        else:
+            preferred_name = user_profile["preferred_name"] or name
+            name_parts = self._get_name_parts(name, user_profile)
+            if preferred_name == user_profile["first_name"] and \
+                    "first_name" in name_parts:
+                preferred_name = name_parts["first_name"]
+            updated_user_profile = {"preferred_name": preferred_name,
+                                    **name_parts}
+            if all((user_profile[n] == updated_user_profile.get(n) for n in
+                    ("first_name", "middle_name", "last_name"))):
+                self.speak_dialog("name_not_changed",
+                                  {"position": self.translate(f"word_name"),
+                                   "name": name})
+            else:
+                self.update_profile({"user": updated_user_profile}, message)
+                self.speak_dialog("name_set_full",
+                                  {"nick": preferred_name,
+                                   "name": name_parts["full_name"]},
+                                  private=True)
+
+    @staticmethod
+    def _get_name_parts(name: str, user_profile: dict) -> dict:
+        """
+        Parse a name string into first/middle/last components
+        :param user_profile: user preferences dict with keys:
+            ('first_name', 'middle_name', 'last_name')
+        :returns: dict of positional names extracted
+        """
+        name_parts = name.split()
+        if len(name_parts) == 1:
+            name = {"first_name": name}
+        elif len(name_parts) == 2:
+            name = {"first_name": name_parts[0],
+                    "last_name": name_parts[1]}
+        elif len(name_parts) == 3:
+            name = {"first_name": name_parts[0],
+                    "middle_name": name_parts[1],
+                    "last_name": name_parts[2]}
+        else:
+            LOG.warning(f"Longer name than expected: {name}")
+            name = {"first_name": name_parts[0],
+                    "middle_name": name_parts[1],
+                    "last_name": " ".join(name_parts[2:])}
+        name_parts = (name.get(n) or user_profile.get(n)
+                      for n in ("first_name", "middle_name", "last_name"))
+        name["full_name"] = " ".join((n for n in name_parts if n))
+        return name
 
     @staticmethod
     def _get_timezone_from_location(location: dict) -> \

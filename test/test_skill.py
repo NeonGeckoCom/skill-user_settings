@@ -25,20 +25,23 @@
 # LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
+import os
+import shutil
 import unittest
+from copy import deepcopy
 
+from datetime import datetime
 from os import mkdir
 from os.path import dirname, join, exists
 from typing import Optional
-
+from dateutil.tz import gettz
 from mock import Mock
 from mock.mock import call
-from neon_utils.user_utils import get_default_user_config
 from ovos_utils.messagebus import FakeBus
 from mycroft_bus_client import Message
 from neon_utils.configuration_utils import get_neon_local_config,\
     get_neon_user_config
+
 from mycroft.skills.skill_loader import SkillLoader
 
 
@@ -47,16 +50,17 @@ class TestSkill(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+        # Define a directory to use for testing
+        cls.test_fs = join(dirname(__file__), "skill_fs")
+        if not exists(cls.test_fs):
+            mkdir(cls.test_fs)
+        os.environ["NEON_CONFIG_PATH"] = cls.test_fs
+
         bus = FakeBus()
         bus.run_in_thread()
         skill_loader = SkillLoader(bus, dirname(dirname(__file__)))
         skill_loader.load()
         cls.skill = skill_loader.instance
-
-        # Define a directory to use for testing
-        cls.test_fs = join(dirname(__file__), "skill_fs")
-        if not exists(cls.test_fs):
-            mkdir(cls.test_fs)
 
         # Override the configuration and fs paths to use the test directory
         cls.skill._local_config = get_neon_local_config(cls.test_fs)
@@ -70,9 +74,14 @@ class TestSkill(unittest.TestCase):
         cls.skill.speak = Mock()
         cls.skill.speak_dialog = Mock()
 
+    @classmethod
+    def tearDownClass(cls) -> None:
+        shutil.rmtree(cls.test_fs)
+
     def setUp(self):
         self.skill.speak.reset_mock()
         self.skill.speak_dialog.reset_mock()
+        self.user_config = deepcopy(self.skill.user_config.content)
 
     def test_00_skill_init(self):
         # Test any parameters expected to be set in init or initialize methods
@@ -81,7 +90,7 @@ class TestSkill(unittest.TestCase):
         self.assertIsInstance(self.skill, NeonSkill)
 
     def test_handle_unit_change(self):
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_profile["units"]["measure"] = "imperial"
         test_message = Message("test", {"imperial": "imperial"},
@@ -123,7 +132,7 @@ class TestSkill(unittest.TestCase):
             "imperial")
 
     def test_handle_time_format_change(self):
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_profile["units"]["time"] = 12
         test_message = Message("test", {"half": "12 hour"},
@@ -160,7 +169,7 @@ class TestSkill(unittest.TestCase):
             test_message.context["user_profiles"][0]["units"]["time"], 12)
 
     def test_handle_speech_hesitation(self):
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_profile["response_mode"]["hesitation"] = True
         test_message = Message("test", {"permit": "enable"},
@@ -194,7 +203,7 @@ class TestSkill(unittest.TestCase):
                         ["response_mode"]["hesitation"])
 
     def test_handle_transcription_retention(self):
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_profile["privacy"]["save_audio"] = True
         test_profile["privacy"]["save_text"] = True
@@ -274,7 +283,7 @@ class TestSkill(unittest.TestCase):
                         ["privacy"]["save_text"])
 
     def test_handle_speak_speed(self):
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {"faster": "faster"},
                                {"username": "test_user",
@@ -326,7 +335,7 @@ class TestSkill(unittest.TestCase):
         real_ask_yesno = self.skill.ask_yesno
         self.skill.ask_yesno = Mock(return_value="no")
 
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_message: Optional[Message] = None
 
@@ -431,7 +440,7 @@ class TestSkill(unittest.TestCase):
         self.skill.ask_yesno = real_ask_yesno
 
     def test_handle_change_dialog_option(self):
-        test_profile = get_default_user_config()
+        test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {"limited": "limited"},
                                {"username": "test_user",
@@ -467,6 +476,390 @@ class TestSkill(unittest.TestCase):
         self.skill.speak_dialog.assert_called_with("dialog_mode_already_set",
                                                    {"response": "random"},
                                                    private=True)
+
+    def test_handle_say_my_name(self):
+        test_profile = self.user_config
+        test_message = Message("test", {},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+
+        # No name set
+        self.skill.handle_say_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with("name_not_known",
+                                                   {"name_position": "name"},
+                                                   private=True)
+
+        test_message.context["user_profiles"][0]["user"]["username"] = \
+            "test_user"
+        # first name not known
+        test_message.data['utterance'] = "tell me my first name"
+        self.skill.handle_say_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_not_known", {"name_position": "first name"}, private=True)
+        # middle name not known
+        test_message.data['utterance'] = "tell me my middle name"
+        self.skill.handle_say_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_not_known", {"name_position": "middle name"}, private=True)
+        # last name not known
+        test_message.data['utterance'] = "tell me my last name"
+        self.skill.handle_say_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_not_known", {"name_position": "last name"}, private=True)
+        # preferred name not known
+        test_message.data['utterance'] = "tell me my nick name"
+        self.skill.handle_say_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_not_known", {"name_position": "preferred name"}, private=True)
+
+        # name username set
+        test_message.data['utterance'] = "tell me my name"
+        self.skill.handle_say_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_is", {"name_position": "name",
+                        "name": "test_user"}, private=True)
+
+        # name first name set
+        test_message.context["user_profiles"][0]["user"]["first_name"] = \
+            "First"
+        self.skill.handle_say_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_is", {"name_position": "name",
+                        "name": "First"}, private=True)
+
+        # name preferred name set
+        test_message.context["user_profiles"][0]["user"]["preferred_name"] = \
+            "Preferred"
+        self.skill.handle_say_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_is", {"name_position": "name",
+                        "name": "Preferred"}, private=True)
+
+        test_message.context["user_profiles"][0]["user"]["middle_name"] = \
+            "Middle"
+        test_message.context["user_profiles"][0]["user"]["last_name"] = \
+            "Last"
+
+        # request first name
+        test_message.data['utterance'] = "tell me my first name"
+        self.skill.handle_say_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_is", {"name_position": "first name",
+                        "name": "First"}, private=True)
+        # request middle name
+        test_message.data['utterance'] = "tell me my middle name"
+        self.skill.handle_say_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_is", {"name_position": "middle name",
+                        "name": "Middle"}, private=True)
+        # request last name
+        test_message.data['utterance'] = "tell me my last name"
+        self.skill.handle_say_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_is", {"name_position": "last name",
+                        "name": "Last"}, private=True)
+
+        # request preferred name
+        test_message.data['utterance'] = "tell me my preferred name"
+        self.skill.handle_say_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_is", {"name_position": "preferred name",
+                        "name": "Preferred"}, private=True)
+
+        # request username
+        test_message.data['utterance'] = "tell me my username"
+        self.skill.handle_say_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_is", {"name_position": "username",
+                        "name": "test_user"}, private=True)
+
+    def test_handle_say_my_email(self):
+        test_profile = self.user_config
+        test_profile["user"]["username"] = "test_user"
+        test_message = Message("test", {},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        self.assertFalse(test_profile["user"]["email"])
+        self.skill.handle_say_my_email(test_message)
+        self.skill.speak_dialog.assert_called_with("email_not_known",
+                                                   private=True)
+        test_message.context["user_profiles"][0]["user"]["email"] = \
+            "test@neon.ai"
+        self.skill.handle_say_my_email(test_message)
+        self.skill.speak_dialog.assert_called_with("email_is",
+                                                   {"email": "test@neon.ai"},
+                                                   private=True)
+
+    def test_handle_say_my_location(self):
+        test_profile = self.user_config
+        test_profile["user"]["username"] = "test_user"
+        test_message = Message("test", {},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        self.skill.handle_say_my_location(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "location_is", {"location": "Renton, Washington"}, private=True)
+
+        test_message.context['user_profiles'][0]['location']['city'] = "Kyiv"
+        test_message.context['user_profiles'][0]['location']['state'] = ""
+        test_message.context['user_profiles'][0]['location']['country'] = \
+            "Ukraine"
+        self.skill.handle_say_my_location(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "location_is", {"location": "Kyiv, Ukraine"}, private=True)
+
+    def test_handle_set_my_birthday(self):
+        test_profile = self.user_config
+        test_profile["user"]["username"] = "test_user"
+        test_message = Message("test", {"utterance": "my birthday is today"},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        self.skill.handle_set_my_birthday(test_message)
+        today = datetime.now(gettz(test_profile["location"]["tz"]))
+        self.skill.speak_dialog.assert_has_calls((
+            call("birthday_confirmed", {"birthday": today.strftime("%B %-d")},
+                 private=True),
+            call("happy_birthday", private=True)
+        ), True)
+
+        test_message.data['utterance'] = "my birthday is september 9"
+        self.skill.handle_set_my_birthday(test_message)
+        self.skill.speak_dialog.assert_called_with("birthday_confirmed",
+                                                   {"birthday": "September 9"},
+                                                   private=True)
+
+    def test_handle_set_my_email(self):
+        real_ask_yesno = self.skill.ask_yesno
+        self.skill.ask_yesno = Mock(return_value="no")
+        test_profile = self.user_config
+        test_profile["user"]["username"] = "test_user"
+        test_message = Message("test", {},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+
+        def _check_not_confirmed(msg):
+            self.skill.handle_set_my_email(msg)
+            self.skill.ask_yesno.assert_called_once_with(
+                "email_confirmation", {"email": "test@neon.ai"})
+            self.skill.speak_dialog.assert_called_once_with(
+                "email_not_confirmed", private=True)
+            self.skill.ask_yesno.reset_mock()
+            self.skill.speak_dialog.reset_mock()
+
+        # Typed input
+        test_message.data["utterance"] = "my email address is test@neon.ai"
+        test_message.data["Setting"] = "test@neon . "
+        _check_not_confirmed(test_message)
+
+        # Spoken input recognized domain
+        test_message.data["utterance"] = "my email address is test at neon.ai"
+        test_message.data["Setting"] = "test at neon ."
+        _check_not_confirmed(test_message)
+
+        # Spoken input unrecognized domain
+        test_message.data["utterance"] = "my email is test at neon dot ai"
+        test_message.data["Setting"] = "test at neon dot ai"
+        _check_not_confirmed(test_message)
+
+        # Invalid address
+        test_message.data["utterance"] = "my email address is test at neon ai"
+        test_message.data["Setting"] = "test at neon ai"
+        self.skill.handle_set_my_email(test_message)
+        self.skill.speak_dialog.assert_called_once_with(
+            "email_set_error", private=True)
+        self.skill.speak_dialog.reset_mock()
+
+        # Set Email Confirmed
+        test_message.data["utterance"] = "my email is test at neon dot ai"
+        test_message.data["Setting"] = "test at neon dot ai"
+        self.skill.ask_yesno = Mock(return_value="yes")
+        self.skill.handle_set_my_email(test_message)
+        self.skill.ask_yesno.assert_called_with("email_confirmation",
+                                                {"email": "test@neon.ai"})
+        self.skill.speak_dialog.assert_called_with("email_set",
+                                                   {"email": "test@neon.ai"},
+                                                   private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["email"], "test@neon.ai")
+        # Set Email No Change
+        self.skill.handle_set_my_email(test_message)
+        self.skill.speak_dialog.assert_called_with("email_already_set_same",
+                                                   {"email": "test@neon.ai"},
+                                                   private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["email"], "test@neon.ai")
+        # Change Email Not Confirmed
+        self.skill.ask_yesno = Mock(return_value="no")
+        test_message.data["utterance"] = "my email is demo at neon dot ai"
+        test_message.data["Setting"] = "demo at neon dot ai"
+        self.skill.handle_set_my_email(test_message)
+        self.skill.ask_yesno.assert_called_with("email_overwrite",
+                                                {"old": "test@neon.ai",
+                                                 "new": "demo@neon.ai"})
+        self.skill.speak_dialog.assert_called_with("email_not_changed",
+                                                   {"email": "test@neon.ai"},
+                                                   private=True)
+        # Change Email Confirmed
+        self.skill.ask_yesno = Mock(return_value="yes")
+        self.skill.handle_set_my_email(test_message)
+        self.skill.ask_yesno.assert_called_with("email_overwrite",
+                                                {"old": "test@neon.ai",
+                                                 "new": "demo@neon.ai"})
+        self.skill.speak_dialog.assert_called_with("email_set",
+                                                   {"email": "demo@neon.ai"},
+                                                   private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["email"], "demo@neon.ai")
+
+        self.skill.ask_yesno = real_ask_yesno
+
+    def test_handle_set_my_name(self):
+        test_profile = self.user_config
+        test_profile["user"]["username"] = "test_user"
+        test_message = Message("test", {},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+
+        # Set first name
+        test_message.data["utterance"] = "my first name is daniel"
+        test_message.data["Setting"] = "daniel"
+        self.skill.handle_set_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with("name_set_part",
+                                                   {"position": "first name",
+                                                    "name": "Daniel"},
+                                                   private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["first_name"], "Daniel")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["full_name"], "Daniel")
+        # Set middle name
+        test_message.data["utterance"] = "my middle name is james"
+        test_message.data["Setting"] = "james"
+        self.skill.handle_set_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with("name_set_part",
+                                                   {"position": "middle name",
+                                                    "name": "James"},
+                                                   private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["middle_name"], "James")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["full_name"], "Daniel James")
+        # Set last name
+        test_message.data["utterance"] = "my last name is McKnight"
+        test_message.data["Setting"] = "McKnight"
+        self.skill.handle_set_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with("name_set_part",
+                                                   {"position": "last name",
+                                                    "name": "Mcknight"},
+                                                   private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["last_name"], "Mcknight")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["full_name"], "Daniel James Mcknight")
+        # Set preferred name
+        test_message.data["utterance"] = "my preferred name is Dan"
+        test_message.data["Setting"] = "Dan"
+        self.skill.handle_set_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_set_part",
+            {"position": "preferred name", "name": "Dan"}, private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["preferred_name"], "Dan")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["full_name"], "Daniel James Mcknight")
+        # Set preferred name unchanged
+        self.skill.handle_set_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_not_changed",
+            {"position": "preferred name", "name": "Dan"}, private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["preferred_name"], "Dan")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["full_name"], "Daniel James Mcknight")
+        # Set full name no change
+        test_message.data["utterance"] = "my name is Daniel James McKnight"
+        test_message.data["Setting"] = "Daniel James McKnight"
+        self.skill.handle_set_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_not_changed", {"position": "name",
+                                 "name": "Daniel James Mcknight"})
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["full_name"], "Daniel James Mcknight")
+        # Set full name 1 first changed
+        test_message.data["utterance"] = "my name is test"
+        test_message.data["Setting"] = "test"
+        self.skill.handle_set_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_set_full", {"nick": "Dan", "name": "Test James Mcknight"},
+            private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["full_name"], "Test James Mcknight")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["first_name"], "Test")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["preferred_name"], "Dan")
+        # Set full name 2 last changed
+        test_message.data["utterance"] = "my name is test this user"
+        test_message.data["Setting"] = "test this user"
+        self.skill.handle_set_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_set_full", {"nick": "Dan", "name": "Test This User"},
+            private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["full_name"], "Test This User")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["middle_name"], "This")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["last_name"], "User")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["preferred_name"], "Dan")
+        # Set full name 4
+        test_message.data["utterance"] = "my name is test this user again"
+        test_message.data["Setting"] = "test this user again"
+        self.skill.handle_set_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "name_set_full", {"nick": "Dan", "name": "Test This User Again"},
+            private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["full_name"], "Test This User Again")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["middle_name"], "This")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["last_name"], "User Again")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["preferred_name"], "Dan")
+
+    def test_get_name_parts(self):
+        user_profile = self.user_config
+        # First none existing
+        name = self.skill._get_name_parts("first", user_profile["user"])
+        self.assertEqual(name, {"first_name": "first",
+                                "full_name": "first"})
+
+        # First and Last override First, existing Middle
+        user_profile["user"]["first_name"] = "old"
+        user_profile["user"]["middle_name"] = "middle"
+        name = self.skill._get_name_parts("first last", user_profile["user"])
+        self.assertEqual(name, {"first_name": "first",
+                                "last_name": "last",
+                                "full_name": "first middle last"})
+        # First Middle Last override existing
+        user_profile["user"]["first_name"] = "old"
+        user_profile["user"]["middle_name"] = "old"
+        user_profile["user"]["last_name"] = "old"
+        name = self.skill._get_name_parts("first middle last",
+                                          user_profile["user"])
+        self.assertEqual(name, {"first_name": "first",
+                                "middle_name": "middle",
+                                "last_name": "last",
+                                "full_name": "first middle last"})
+        # Longer name override existing
+        name = self.skill._get_name_parts("first-name middle last senior",
+                                          user_profile["user"])
+        self.assertEqual(name, {"first_name": "first-name",
+                                "middle_name": "middle",
+                                "last_name": "last senior",
+                                "full_name": "first-name middle last senior"})
 
     def test_get_timezone_from_location(self):
         name, offset = \
