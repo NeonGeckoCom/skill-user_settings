@@ -21,7 +21,8 @@
     "requirements": {
         "python": [
             "pytz>=2021.3",
-            "neon-utils>=0.5.7"
+            "neon-utils~=0.16,>=0.16.1a6",
+            "ovos-lingua-franca~=0.4,>=0.4.5"
         ],
         "system": {},
         "skill": []

@@ -36,10 +36,12 @@ from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
 from neon_utils.logger import LOG
 from neon_utils.user_utils import get_user_prefs
+from lingua_franca.parse import extract_langcode, get_full_lang_code
+from lingua_franca.format import pronounce_lang
+from ovos_utils.file_utils import read_vocab_file
 
 from mycroft.skills.core import intent_handler, intent_file_handler
 from mycroft.util.parse import extract_datetime
-from ovos_utils.file_utils import read_vocab_file
 
 
 class ControlsSkill(NeonSkill):
@@ -515,6 +517,57 @@ class ControlsSkill(NeonSkill):
                                   {"nick": preferred_name,
                                    "name": name_parts["full_name"]},
                                   private=True)
+
+    @intent_handler(IntentBuilder("SayMyLanguageSettings")
+                    .require("tell_me_my").require("language_settings").build())
+    @intent_file_handler("language_settings.intent")
+    def handle_say_my_language_settings(self, message: Message):
+        """
+        Handle a request to read back the user's language settings
+        :param message: Message associated with request
+        """
+        language_settings = get_user_prefs(message)["speech"]
+        primary_lang = pronounce_lang(language_settings["tts_language"])
+        second_lang = pronounce_lang(
+            language_settings["secondary_tts_language"])
+        self.speak_dialog("language_setting",
+                          {"primary": self.translate("word_primary"),
+                           "language": primary_lang,
+                           "gender": self.translate(
+                               f'word_{language_settings["tts_gender"]}')},
+                          private=True)
+        if second_lang and (second_lang != primary_lang or
+                            language_settings["tts_gender"] !=
+                            language_settings["secondary_tts_gender"]):
+            self.speak_dialog(
+                "language_setting",
+                {"primary": self.translate("word_secondary"),
+                 "language": primary_lang,
+                 "gender": self.translate(
+                     f'word_{language_settings["secondary_tts_gender"]}')},
+                private=True)
+
+    @intent_handler(IntentBuilder("SetSTTLanguage").require("change")
+                    .optionally("my").require("language_stt")
+                    .require("Language").build())
+    @intent_file_handler("language_stt.intent")
+    def handle_set_stt_language(self, message: Message):
+        lang = message.data.get("Language").split()[-1]
+        code = get_full_lang_code(extract_langcode(lang)[0])
+        LOG.info(f"code={code}")
+        spoken_lang = pronounce_lang(code)
+        # TODO: Fix resource file resolution
+        if self.ask_yesno("language_change_confirmation",
+                          {"io": self.translate("word_stt"),
+                           "lang": spoken_lang}) == "yes":
+            self.update_profile({"speech": {"stt_language": code}})
+            self.speak_dialog("language_change_confirmation",
+                              {"io": self.translate("word_stt"),
+                               "lang": spoken_lang}, private=True)
+        else:
+            self.speak_dialog("language_not_confirmed", private=True)
+
+# TODO: Language Intents
 
     @staticmethod
     def _get_name_parts(name: str, user_profile: dict) -> dict:
