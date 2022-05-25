@@ -26,6 +26,7 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import re
 from datetime import datetime
 from typing import Optional, Tuple
 from adapt.intent import IntentBuilder
@@ -36,18 +37,21 @@ from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
 from neon_utils.logger import LOG
 from neon_utils.user_utils import get_user_prefs
+from lingua_franca.parse import extract_langcode, get_full_lang_code
+from lingua_franca.format import pronounce_lang
+from lingua_franca.internal import UnsupportedLanguageError
+from ovos_utils.file_utils import read_vocab_file
 
 from mycroft.skills.core import intent_handler, intent_file_handler
 from mycroft.util.parse import extract_datetime
-from ovos_utils.file_utils import read_vocab_file
 
 
-class ControlsSkill(NeonSkill):
+class UserSettingsSkill(NeonSkill):
     MAX_SPEECH_SPEED = 1.5
     MIN_SPEECH_SPEED = 0.7
 
     def __init__(self):
-        super(ControlsSkill, self).__init__(name="UserSettingsSkill")
+        super(UserSettingsSkill, self).__init__(name="UserSettingsSkill")
 
     @intent_handler(IntentBuilder("ChangeUnits").require("change")
                     .require("units").one_of("imperial", "metric").build())
@@ -516,6 +520,273 @@ class ControlsSkill(NeonSkill):
                                    "name": name_parts["full_name"]},
                                   private=True)
 
+    @intent_handler(IntentBuilder("SayMyLanguageSettings")
+                    .require("tell_me_my").require("language_settings").build())
+    @intent_file_handler("language_settings.intent")
+    def handle_say_my_language_settings(self, message: Message):
+        """
+        Handle a request to read back the user's language settings
+        :param message: Message associated with request
+        """
+        load_language(self.lang)
+        language_settings = get_user_prefs(message)["speech"]
+        primary_lang = pronounce_lang(language_settings["tts_language"])
+        second_lang = pronounce_lang(
+            language_settings["secondary_tts_language"])
+        self.speak_dialog("language_setting",
+                          {"primary": self.translate("word_primary"),
+                           "language": primary_lang,
+                           "gender": self.translate(
+                               f'word_{language_settings["tts_gender"]}')},
+                          private=True)
+        if second_lang and (second_lang != primary_lang or
+                            language_settings["tts_gender"] !=
+                            language_settings["secondary_tts_gender"]):
+            self.speak_dialog(
+                "language_setting",
+                {"primary": self.translate("word_secondary"),
+                 "language": second_lang,
+                 "gender": self.translate(
+                     f'word_{language_settings["secondary_tts_gender"]}')},
+                private=True)
+
+    @intent_handler(IntentBuilder("SetSTTLanguage").require("change")
+                    .optionally("my").require("language_stt")
+                    .require("language").require("Language").build())
+    @intent_file_handler("language_stt.intent")
+    def handle_set_stt_language(self, message: Message):
+        """
+        Handle a request to change the language spoken by the user
+        :param message: Message associated with request
+        """
+        lang = self._parse_languages(message.data.get("utterance"))[0] or \
+            message.data.get("Language").split()[-1]
+        try:
+            code, spoken_lang = self._get_lang_code_and_name(lang)
+        except UnsupportedLanguageError as e:
+            LOG.error(e)
+            self.speak_dialog("language_not_recognized", {"lang": lang},
+                              private=True)
+            return
+
+        LOG.info(f"code={code}")
+        dialog_data = {"io": self.translate("word_stt"),
+                       "lang": spoken_lang}
+        if code == get_user_prefs(message)["speech"]["stt_language"]:
+            self.speak_dialog("language_not_changed", dialog_data,
+                              private=True)
+            return
+
+        if self.ask_yesno("language_change_confirmation",
+                          dialog_data) == "yes":
+            self.update_profile({"speech": {"stt_language": code}})
+            self.speak_dialog("language_set", dialog_data,
+                              private=True)
+        else:
+            self.speak_dialog("language_not_confirmed", private=True)
+
+    @intent_handler(IntentBuilder("SetTTSLanguage").require("change")
+                    .optionally("my").require("language_tts")
+                    .require("language").require("Language").build())
+    @intent_handler(IntentBuilder("TalkToMe").require("speak_to_me")
+                    .require("Language").build())
+    def handle_set_tts_language(self, message: Message):
+        """
+        Handle a request to change the language spoken to the user
+        :param message: Message associated with request
+        """
+        language = message.data.get("Language") or message.data.get("Setting")
+        primary, secondary = \
+            self._parse_languages(message.data.get("utterance"))
+        LOG.info(f"primary={primary} | secondary={secondary} | "
+                 f"language={language}")
+        user_settings = get_user_prefs(message)
+        if primary:
+            try:
+                primary_code, primary_spoken = \
+                    self._get_lang_code_and_name(primary)
+                LOG.info(f"primary={primary_code}")
+                gender = self._get_gender(primary) or \
+                    user_settings["speech"]["tts_gender"]
+                self.update_profile({"speech": {"tts_gender": gender,
+                                                "tts_language": primary_code}},
+                                    message)
+                self.speak_dialog("language_set",
+                                  {"io": self.translate("word_primary"),
+                                   "lang": primary_spoken}, private=True)
+            except UnsupportedLanguageError:
+                LOG.warning(f"No language for primary request: {primary}")
+                self.speak_dialog("language_not_recognized", {"lang": primary},
+                                  private=True)
+        if secondary:
+            try:
+                secondary_code, secondary_spoken = \
+                    self._get_lang_code_and_name(secondary)
+                LOG.info(f"secondary={secondary_code}")
+                gender = self._get_gender(secondary) or \
+                    user_settings["speech"]["secondary_tts_gender"]
+                self.update_profile(
+                    {"speech": {"secondary_tts_gender": gender,
+                                "secondary_tts_language": secondary_code}},
+                    message)
+                self.speak_dialog("language_set",
+                                  {"io": self.translate("word_secondary"),
+                                   "lang": secondary_spoken}, private=True)
+            except UnsupportedLanguageError:
+                LOG.warning(f"No language for secondary request: {secondary}")
+                self.speak_dialog("language_not_recognized",
+                                  {"lang": secondary}, private=True)
+
+        if any((primary, secondary)):
+            return
+        if language:
+            try:
+                code, spoken = \
+                    self._get_lang_code_and_name(language)
+                gender = self._get_gender(language) or \
+                    user_settings["speech"]["tts_gender"]
+                self.update_profile({"speech": {"tts_gender": gender,
+                                                "tts_language": code}},
+                                    message)
+                self.speak_dialog("language_set",
+                                  {"io": self.translate("word_primary"),
+                                   "lang": spoken}, private=True)
+            except UnsupportedLanguageError:
+                LOG.warning(f"No language for secondary request: {language}")
+                self.speak_dialog("language_not_recognized",
+                                  {"lang": language}, private=True)
+        else:
+            LOG.warning("No language parsed")
+            self.speak_dialog("language_not_heard", private=True)
+
+    @intent_handler(IntentBuilder("SetPreferredLanguage").require("my")
+                    .require("preferred_language").require("Setting").build())
+    @intent_handler(IntentBuilder("SetMyLanguage").require("change")
+                    .require("my").require("language")
+                    .optionally("Language").build())
+    def handle_set_language(self, message: Message):
+        """
+        Handle a user request to change languages. Checks for improper parsing
+        of STT/TTS keywords and otherwise updates both STT and TTS settings.
+        :param message: Message associated with request
+        """
+        utterance = message.data.get("utterance")
+        LOG.info(f"Ambiguous language change request: {utterance}")
+        if self.voc_match(utterance, "language_stt"):
+            LOG.warning("STT Intent not matched")
+            self.handle_set_stt_language(message)
+        elif self.voc_match(utterance, "language_tts"):
+            LOG.warning("TTS Intent not matched")
+            self.handle_set_tts_language(message)
+        else:
+            LOG.info("General language change request, handle STT+TTS")
+            self.handle_set_tts_language(message)
+            try:
+                lang = self._get_lang_code_and_name(
+                    message.data.get("Language", ""))[0]
+                if not lang or lang != \
+                        get_user_prefs(message)["speech"]["stt_language"]:
+                    self.handle_set_stt_language(message)
+            except UnsupportedLanguageError:
+                pass
+
+    @intent_handler(IntentBuilder("NoSecondaryLanguage")
+                    .require("no_secondary_language").build())
+    def handle_no_secondary_language(self, message: Message):
+        """
+        Handle a user request to only hear responses in one language
+        :param message: Message associated with request
+        """
+        self.update_profile({"speech": {"secondary_tts_language": "",
+                                        "secondary_neon_voice": ""}},
+                            message)
+        self.speak_dialog("only_one_language", private=True)
+
+    def _parse_languages(self, utterance: str) -> \
+            (Optional[str], Optional[str]):
+        """
+        Parse a language change request for primary and secondary languages
+        :param utterance: raw utterance spoken by the user
+        :returns: spoken primary, secondary languages requested
+        """
+        def _get_rx_patterns(rx_file: str, utt: str):
+            with open(rx_file) as f:
+                for pat in f.read().splitlines():
+                    pat = pat.strip()
+                    if pat and pat[0] == "#":
+                        continue
+                    res = re.search(pat, utt)
+                    if res:
+                        return res
+        utterance = f"{utterance}\n"
+        primary_tts = self.find_resource('primary_tts.rx', 'regex')
+        secondary_tts = self.find_resource('secondary_tts.rx', 'regex')
+        if primary_tts:
+            try:
+                primary = _get_rx_patterns(primary_tts,
+                                           utterance).group("Primary").strip()
+            except (IndexError, AttributeError):
+                primary = None
+        else:
+            LOG.warning("Could not resolve primary_tts.rx")
+            primary = None
+        if secondary_tts:
+            try:
+                secondary = _get_rx_patterns(secondary_tts,
+                                             utterance).group("Secondary")\
+                    .strip()
+            except (IndexError, AttributeError):
+                secondary = None
+        else:
+            LOG.warning("Could not resolve secondary_tts.rx")
+            secondary = None
+
+        return primary, secondary
+
+    def _get_lang_code_and_name(self, request: str) -> (str, str):
+        """
+        Extract the lang code and pronounceable name from a requested language
+        :param request: user requested language
+        :returns: lang code and pronounceable language name if found, else None
+        """
+        load_language(self.lang)
+        short_code = extract_langcode(request)[0]
+        code = get_full_lang_code(short_code)
+        if code.split('-')[0] != short_code:
+            LOG.warning(f"Got {code} from {short_code}. No valid code")
+            code = None
+        # TODO: https://github.com/OpenVoiceOS/ovos-lingua-franca/issues/24
+        #  Patching known languages, drop this when #24 resolved
+        request_overrides = {
+            "australian": "en-au",
+            "british": "en-uk",
+            "mexican": "es-mx",
+            "ukrainian": "uk-ua",
+            "japanese": "ja-jp"
+        }
+        for lang, c in request_overrides.items():
+            if lang in request.lower().split():
+                code = c
+                break
+
+        if not code:
+            raise UnsupportedLanguageError(f"No language found in {request}")
+        spoken_lang = pronounce_lang(code)
+        return code, spoken_lang
+
+    def _get_gender(self, request: str) -> Optional[str]:
+        """
+        Extract a requested voice gender
+        :param request: Parsed user requested language
+        :returns: 'male', 'female', or None
+        """
+        if self.voc_match(request, "male"):
+            return "male"
+        if self.voc_match(request, "female"):
+            return "female"
+        LOG.info(f"no gender in request: {request}")
+        return None
+
     @staticmethod
     def _get_name_parts(name: str, user_profile: dict) -> dict:
         """
@@ -584,4 +855,4 @@ class ControlsSkill(NeonSkill):
 
 
 def create_skill():
-    return ControlsSkill()
+    return UserSettingsSkill()
