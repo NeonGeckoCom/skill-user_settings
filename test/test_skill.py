@@ -829,6 +829,282 @@ class TestSkill(unittest.TestCase):
         self.assertEqual(test_message.context["user_profiles"][0]
                          ["user"]["preferred_name"], "Dan")
 
+    def test_handle_say_my_language_settings(self):
+        test_profile = self.user_config
+        test_profile["user"]["username"] = "test_user"
+        test_profile["speech"]["tts_language"] = "en-us"
+        test_profile["speech"]["tts_gender"] = "female"
+        test_message = Message("test", {},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        # Only one lang
+        self.skill.handle_say_my_language_settings(test_message)
+        self.skill.speak_dialog.assert_called_once_with(
+            "language_setting", {"primary": "primary",
+                                 "language": "American English",
+                                 "gender": "female"}, private=True)
+        # Two diff langs
+        test_message.context["user_profiles"][0][
+            "speech"]["secondary_tts_language"] = "uk-ua"
+        self.skill.speak_dialog.reset_mock()
+        self.skill.handle_say_my_language_settings(test_message)
+        self.skill.speak_dialog.assert_has_calls((
+            call("language_setting", {"primary": "primary",
+                                      "language": "American English",
+                                      "gender": "female"}, private=True),
+            call("language_setting", {"primary": "secondary",
+                                      "language": "Ukrainian",
+                                      "gender": "male"}, private=True)
+        ))
+        # Two langs same gender
+        test_message.context["user_profiles"][0][
+            "speech"]["secondary_tts_gender"] = "female"
+        self.skill.speak_dialog.reset_mock()
+        self.skill.handle_say_my_language_settings(test_message)
+        self.skill.speak_dialog.assert_has_calls((
+            call("language_setting", {"primary": "primary",
+                                      "language": "American English",
+                                      "gender": "female"}, private=True),
+            call("language_setting", {"primary": "secondary",
+                                      "language": "Ukrainian",
+                                      "gender": "female"}, private=True)
+        ))
+        # One lang diff gender
+        test_message.context["user_profiles"][0][
+            "speech"]["secondary_tts_gender"] = "male"
+        test_message.context["user_profiles"][0][
+            "speech"]["secondary_tts_language"] = "en-us"
+        self.skill.speak_dialog.reset_mock()
+        self.skill.handle_say_my_language_settings(test_message)
+        self.skill.speak_dialog.assert_has_calls((
+            call("language_setting", {"primary": "primary",
+                                      "language": "American English",
+                                      "gender": "female"}, private=True),
+            call("language_setting", {"primary": "secondary",
+                                      "language": "American English",
+                                      "gender": "male"}, private=True)
+        ))
+
+    def test_handle_set_stt_language(self):
+        real_ask_yesno = self.skill.ask_yesno
+        test_profile = self.user_config
+        test_profile["user"]["username"] = "test_user"
+        test_profile["speech"]["stt_language"] = "en-us"
+        test_message = Message("test", {"Language": "something"},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        # Invalid lang
+        self.skill.handle_set_stt_language(test_message)
+        self.skill.speak_dialog.assert_called_with("language_not_recognized",
+                                                   {"lang": "something"},
+                                                   private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["speech"]["stt_language"], "en-us")
+
+        # Same lang
+        test_message.data["Language"] = "english"
+        self.skill.handle_set_stt_language(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "language_not_changed", {"io": "speech to text",
+                                     "lang": "American English"},
+            private=True)
+        # Change lang unconfirmed
+        self.skill.ask_yesno = Mock(return_value=False)
+        test_message.data["Language"] = "ukrainian"
+        self.skill.handle_set_stt_language(test_message)
+        self.skill.ask_yesno.assert_called_once_with(
+            "language_change_confirmation", {"io": "speech to text",
+                                             "lang": "Ukrainian"})
+        self.skill.speak_dialog.assert_called_with("language_not_confirmed",
+                                                   private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["speech"]["stt_language"], "en-us")
+
+        # Change lang confirmed
+        self.skill.ask_yesno = Mock(return_value="yes")
+        self.skill.handle_set_stt_language(test_message)
+        self.skill.ask_yesno.assert_called_once_with(
+            "language_change_confirmation", {"io": "speech to text",
+                                             "lang": "Ukrainian"})
+        self.skill.speak_dialog.assert_called_with("language_set",
+                                                   {"io": "speech to text",
+                                                    "lang": "Ukrainian"},
+                                                   private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["speech"]["stt_language"], "uk-ua")
+        self.skill.ask_yesno = real_ask_yesno
+
+    def test_handle_set_tts_language(self):
+        test_profile = self.user_config
+        test_profile["user"]["username"] = "test_user"
+        test_message = Message("test", {},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        # Change TTS language
+        test_message.data = {"utterance": "Change my TTS language to spanish",
+                             "Language": "spanish"}
+        self.skill.handle_set_tts_language(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "language_set", {"io": "primary", "lang": "Spanish"}, private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["tts_language"], "es-es")
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["tts_gender"], test_profile["speech"]["tts_gender"])
+        # Change Primary TTS language
+        test_message.data = {"utterance": "Change my Primary TTS language "
+                                          "to french",
+                             "Language": "french"}
+        self.skill.handle_set_tts_language(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "language_set", {"io": "primary", "lang": "French"}, private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["tts_language"], "fr-fr")
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["tts_gender"], test_profile["speech"]["tts_gender"])
+        # Change Secondary TTS language
+        test_message.data = {"utterance": "Change my secondary TTS language "
+                                          "to female Polish"}
+        self.skill.handle_set_tts_language(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "language_set", {"io": "secondary", "lang": "Polish"},
+            private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["secondary_tts_language"], "pl-pl")
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["secondary_tts_gender"], "female")
+        # Talk to me
+        test_message.data = {"utterance": "Talk to me in Ukrainian",
+                             "Language": "Ukrainian"}
+        self.skill.handle_set_tts_language(test_message)
+        self.skill.speak_dialog.assert_called_with(
+            "language_set", {"io": "primary", "lang": "Ukrainian"},
+            private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["tts_language"], "uk-ua")
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["tts_gender"], test_profile["speech"]["tts_gender"])
+        # Change primary and secondary
+        test_message.data = {"utterance": "Change my primary language to "
+                                          "English and my secondary language "
+                                          "to German"}
+        self.skill.speak_dialog.reset_mock()
+        self.skill.handle_set_tts_language(test_message)
+        self.skill.speak_dialog.assert_has_calls((
+            call("language_set",
+                 {"io": "primary", "lang": "American English"}, private=True),
+            call("language_set",
+                 {"io": "secondary", "lang": "German"}, private=True)
+        ))
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["tts_language"], "en-us")
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["secondary_tts_language"], "de-de")
+        # Change primary language invalid and secondary language valid
+        test_message.data = {"utterance": "Change my primary language to "
+                                          "nothing and my second language "
+                                          "to Italian"}
+        self.skill.speak_dialog.reset_mock()
+        self.skill.handle_set_tts_language(test_message)
+        self.skill.speak_dialog.assert_has_calls((
+            call("language_not_recognized",
+                 {"lang": "nothing"}, private=True),
+            call("language_set",
+                 {"io": "secondary", "lang": "Italian"}, private=True)
+        ))
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["tts_language"], "en-us")
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["secondary_tts_language"], "it-it")
+
+        # Change primary language valid and second language invalid
+        test_message.data = {"utterance": "Change my primary language to "
+                                          "Japanese and my second language "
+                                          "to something"}
+        self.skill.speak_dialog.reset_mock()
+        self.skill.handle_set_tts_language(test_message)
+        self.skill.speak_dialog.assert_has_calls((
+            call("language_set",
+                 {"io": "primary", "lang": "Japanese"}, private=True),
+            call("language_not_recognized",
+                 {"lang": "something"}, private=True)
+
+        ))
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["tts_language"], "ja-jp")
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["secondary_tts_language"], "it-it")
+
+        # Change TTS language invalid
+        test_message.data = {"utterance": "Change my text to speech language"}
+        self.skill.handle_set_tts_language(test_message)
+        self.skill.speak_dialog.assert_called_with("language_not_heard",
+                                                   private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["tts_language"], "ja-jp")
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["secondary_tts_language"], "it-it")
+
+    def test_handle_set_language(self):
+        real_set_stt_language = self.skill.handle_set_stt_language
+        real_set_tts_language = self.skill.handle_set_tts_language
+        self.skill.handle_set_stt_language = Mock()
+        self.skill.handle_set_tts_language = Mock()
+
+        # stt request
+        stt_message = Message("test",
+                              {"utterance": "set my language speech to text"})
+        self.skill.handle_set_language(stt_message)
+        self.skill.handle_set_stt_language.assert_called_once_with(stt_message)
+        # tts request
+        tts_message = Message("test",
+                              {"utterance": "set my language text to speech"})
+        self.skill.handle_set_language(tts_message)
+        self.skill.handle_set_tts_language.assert_called_once_with(tts_message)
+
+        # Unspecified request
+        test_message = Message("test",
+                               {"utterance": "set my language to spanish",
+                                "Language": "spanish"})
+        self.skill.handle_set_language(test_message)
+        self.skill.handle_set_stt_language.assert_called_with(test_message)
+        self.skill.handle_set_tts_language.assert_called_with(test_message)
+
+        # Unspecified STT not changed
+        self.skill.handle_set_stt_language.reset_mock()
+        test_profile = self.user_config
+        test_profile["user"]["username"] = "test_user"
+        test_profile["speech"]["stt_language"] == "en-us"
+        test_message = Message("test", {"Language": "American English"},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        self.skill.handle_set_language(test_message)
+        self.skill.handle_set_tts_language.assert_called_with(test_message)
+        self.skill.handle_set_stt_language.assert_not_called()
+
+        self.skill.handle_set_stt_language = real_set_stt_language
+        self.skill.handle_set_tts_language = real_set_tts_language
+
+    def test_handle_no_secondary_language(self):
+        test_profile = self.user_config
+        test_profile["user"]["username"] = "test_user"
+        test_profile["speech"]["secondary_tts_language"] = "es-es"
+        test_message = Message("test", {},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        self.skill.handle_no_secondary_language(test_message)
+        self.skill.speak_dialog.assert_called_once_with("only_one_language",
+                                                        private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["speech"]["secondary_tts_language"], "")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["speech"]["secondary_neon_voice"], "")
+        profile = deepcopy(test_message.context["user_profiles"][0])
+
+        self.skill.handle_no_secondary_language(test_message)
+        self.skill.speak_dialog.assert_called_with("only_one_language",
+                                                   private=True)
+        self.assertEqual(test_message.context["user_profiles"][0], profile)
+
     def test_get_name_parts(self):
         user_profile = self.user_config
         # First none existing
@@ -896,6 +1172,35 @@ class TestSkill(unittest.TestCase):
         self.assertEqual(address['address']['country'], "United States")
         self.assertIsInstance(address['lat'], str)
         self.assertIsInstance(address['lon'], str)
+
+    def test_parse_languages(self):
+        self.assertEqual((None, None),
+                         self.skill._parse_languages(
+                             "change my language to french"))
+        self.assertEqual(("australian english", None),
+                         self.skill._parse_languages(
+                             "change my primary language to australian "
+                             "english"))
+        self.assertEqual(("australian english", "mexican spanish"),
+                         self.skill._parse_languages(
+                             "change my primary language to australian "
+                             "english and my second language to "
+                             "mexican spanish"))
+
+    def test_get_lang_name_and_code(self):
+        from lingua_franca.internal import UnsupportedLanguageError
+
+        self.assertEqual(("en-us", "American English"),
+                         self.skill._get_lang_code_and_name("english"))
+        self.assertEqual(("pl-pl", "Polish"),
+                         self.skill._get_lang_code_and_name("polish"))
+        self.assertEqual(("uk-ua", "Ukrainian"),
+                         self.skill._get_lang_code_and_name("ukrainian"))
+        self.assertEqual(("en-au", "English"),
+                         self.skill._get_lang_code_and_name(
+                             "australian english"))
+        with self.assertRaises(UnsupportedLanguageError):
+            self.skill._get_lang_code_and_name("nothing")
 
 
 if __name__ == '__main__':
