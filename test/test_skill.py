@@ -342,7 +342,7 @@ class TestSkill(unittest.TestCase):
         def _init_test_message(voc, location):
             nonlocal test_message
             test_message = Message("test", {voc: voc,
-                                            "Place": location},
+                                            "rx_place": location},
                                    {"username": "test_user",
                                     "user_profiles": [test_profile]})
 
@@ -648,22 +648,22 @@ class TestSkill(unittest.TestCase):
 
         # Typed input
         test_message.data["utterance"] = "my email address is test@neon.ai"
-        test_message.data["Setting"] = "test@neon . "
+        test_message.data["rx_setting"] = "test@neon . "
         _check_not_confirmed(test_message)
 
         # Spoken input recognized domain
         test_message.data["utterance"] = "my email address is test at neon.ai"
-        test_message.data["Setting"] = "test at neon ."
+        test_message.data["rx_setting"] = "test at neon ."
         _check_not_confirmed(test_message)
 
         # Spoken input unrecognized domain
         test_message.data["utterance"] = "my email is test at neon dot ai"
-        test_message.data["Setting"] = "test at neon dot ai"
+        test_message.data["rx_setting"] = "test at neon dot ai"
         _check_not_confirmed(test_message)
 
         # Invalid address
         test_message.data["utterance"] = "my email address is test at neon ai"
-        test_message.data["Setting"] = "test at neon ai"
+        test_message.data["rx_setting"] = "test at neon ai"
         self.skill.handle_set_my_email(test_message)
         self.skill.speak_dialog.assert_called_once_with(
             "email_set_error", private=True)
@@ -671,7 +671,7 @@ class TestSkill(unittest.TestCase):
 
         # Set Email Confirmed
         test_message.data["utterance"] = "my email is test at neon dot ai"
-        test_message.data["Setting"] = "test at neon dot ai"
+        test_message.data["rx_setting"] = "test at neon dot ai"
         self.skill.ask_yesno = Mock(return_value="yes")
         self.skill.handle_set_my_email(test_message)
         self.skill.ask_yesno.assert_called_with("email_confirmation",
@@ -691,7 +691,7 @@ class TestSkill(unittest.TestCase):
         # Change Email Not Confirmed
         self.skill.ask_yesno = Mock(return_value="no")
         test_message.data["utterance"] = "my email is demo at neon dot ai"
-        test_message.data["Setting"] = "demo at neon dot ai"
+        test_message.data["rx_setting"] = "demo at neon dot ai"
         self.skill.handle_set_my_email(test_message)
         self.skill.ask_yesno.assert_called_with("email_overwrite",
                                                 {"old": "test@neon.ai",
@@ -722,7 +722,7 @@ class TestSkill(unittest.TestCase):
 
         # Set first name
         test_message.data["utterance"] = "my first name is daniel"
-        test_message.data["Setting"] = "daniel"
+        test_message.data["rx_setting"] = "daniel"
         self.skill.handle_set_my_name(test_message)
         self.skill.speak_dialog.assert_called_with("name_set_part",
                                                    {"position": "first name",
@@ -734,7 +734,7 @@ class TestSkill(unittest.TestCase):
                          ["user"]["full_name"], "Daniel")
         # Set middle name
         test_message.data["utterance"] = "my middle name is james"
-        test_message.data["Setting"] = "james"
+        test_message.data["rx_setting"] = "james"
         self.skill.handle_set_my_name(test_message)
         self.skill.speak_dialog.assert_called_with("name_set_part",
                                                    {"position": "middle name",
@@ -746,7 +746,7 @@ class TestSkill(unittest.TestCase):
                          ["user"]["full_name"], "Daniel James")
         # Set last name
         test_message.data["utterance"] = "my last name is McKnight"
-        test_message.data["Setting"] = "McKnight"
+        test_message.data["rx_setting"] = "McKnight"
         self.skill.handle_set_my_name(test_message)
         self.skill.speak_dialog.assert_called_with("name_set_part",
                                                    {"position": "last name",
@@ -758,7 +758,7 @@ class TestSkill(unittest.TestCase):
                          ["user"]["full_name"], "Daniel James Mcknight")
         # Set preferred name
         test_message.data["utterance"] = "my preferred name is Dan"
-        test_message.data["Setting"] = "Dan"
+        test_message.data["rx_setting"] = "Dan"
         self.skill.handle_set_my_name(test_message)
         self.skill.speak_dialog.assert_called_with(
             "name_set_part",
@@ -778,7 +778,7 @@ class TestSkill(unittest.TestCase):
                          ["user"]["full_name"], "Daniel James Mcknight")
         # Set full name no change
         test_message.data["utterance"] = "my name is Daniel James McKnight"
-        test_message.data["Setting"] = "Daniel James McKnight"
+        test_message.data["rx_setting"] = "Daniel James McKnight"
         self.skill.handle_set_my_name(test_message)
         self.skill.speak_dialog.assert_called_with(
             "name_not_changed", {"position": "name",
@@ -787,7 +787,7 @@ class TestSkill(unittest.TestCase):
                          ["user"]["full_name"], "Daniel James Mcknight")
         # Set full name 1 first changed
         test_message.data["utterance"] = "my name is test"
-        test_message.data["Setting"] = "test"
+        test_message.data["rx_setting"] = "test"
         self.skill.handle_set_my_name(test_message)
         self.skill.speak_dialog.assert_called_with(
             "name_set_full", {"nick": "Dan", "name": "Test James Mcknight"},
@@ -800,7 +800,7 @@ class TestSkill(unittest.TestCase):
                          ["user"]["preferred_name"], "Dan")
         # Set full name 2 last changed
         test_message.data["utterance"] = "my name is test this user"
-        test_message.data["Setting"] = "test this user"
+        test_message.data["rx_setting"] = "test this user"
         self.skill.handle_set_my_name(test_message)
         self.skill.speak_dialog.assert_called_with(
             "name_set_full", {"nick": "Dan", "name": "Test This User"},
@@ -815,7 +815,7 @@ class TestSkill(unittest.TestCase):
                          ["user"]["preferred_name"], "Dan")
         # Set full name 4
         test_message.data["utterance"] = "my name is test this user again"
-        test_message.data["Setting"] = "test this user again"
+        test_message.data["rx_setting"] = "test this user again"
         self.skill.handle_set_my_name(test_message)
         self.skill.speak_dialog.assert_called_with(
             "name_set_full", {"nick": "Dan", "name": "Test This User Again"},
@@ -890,7 +890,7 @@ class TestSkill(unittest.TestCase):
         test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_profile["speech"]["stt_language"] = "en-us"
-        test_message = Message("test", {"Language": "something"},
+        test_message = Message("test", {"rx_language": "something"},
                                {"username": "test_user",
                                 "user_profiles": [test_profile]})
         # Invalid lang
@@ -902,7 +902,7 @@ class TestSkill(unittest.TestCase):
                          ["speech"]["stt_language"], "en-us")
 
         # Same lang
-        test_message.data["Language"] = "english"
+        test_message.data["rx_language"] = "english"
         self.skill.handle_set_stt_language(test_message)
         self.skill.speak_dialog.assert_called_with(
             "language_not_changed", {"io": "speech to text",
@@ -910,7 +910,7 @@ class TestSkill(unittest.TestCase):
             private=True)
         # Change lang unconfirmed
         self.skill.ask_yesno = Mock(return_value=False)
-        test_message.data["Language"] = "ukrainian"
+        test_message.data["rx_language"] = "ukrainian"
         self.skill.handle_set_stt_language(test_message)
         self.skill.ask_yesno.assert_called_once_with(
             "language_change_confirmation", {"io": "speech to text",
@@ -942,7 +942,7 @@ class TestSkill(unittest.TestCase):
                                 "user_profiles": [test_profile]})
         # Change TTS language
         test_message.data = {"utterance": "Change my TTS language to spanish",
-                             "Language": "spanish"}
+                             "rx_language": "spanish"}
         self.skill.handle_set_tts_language(test_message)
         self.skill.speak_dialog.assert_called_with(
             "language_set", {"io": "primary", "lang": "Spanish"}, private=True)
@@ -953,7 +953,7 @@ class TestSkill(unittest.TestCase):
         # Change Primary TTS language
         test_message.data = {"utterance": "Change my Primary TTS language "
                                           "to french",
-                             "Language": "french"}
+                             "rx_language": "french"}
         self.skill.handle_set_tts_language(test_message)
         self.skill.speak_dialog.assert_called_with(
             "language_set", {"io": "primary", "lang": "French"}, private=True)
@@ -974,7 +974,7 @@ class TestSkill(unittest.TestCase):
                          ["secondary_tts_gender"], "female")
         # Talk to me
         test_message.data = {"utterance": "Talk to me in Ukrainian",
-                             "Language": "Ukrainian"}
+                             "rx_language": "Ukrainian"}
         self.skill.handle_set_tts_language(test_message)
         self.skill.speak_dialog.assert_called_with(
             "language_set", {"io": "primary", "lang": "Ukrainian"},
@@ -1064,7 +1064,7 @@ class TestSkill(unittest.TestCase):
         # Unspecified request
         test_message = Message("test",
                                {"utterance": "set my language to spanish",
-                                "Language": "spanish"})
+                                "rx_language": "spanish"})
         self.skill.handle_set_language(test_message)
         self.skill.handle_set_stt_language.assert_called_with(test_message)
         self.skill.handle_set_tts_language.assert_called_with(test_message)
@@ -1073,7 +1073,7 @@ class TestSkill(unittest.TestCase):
         self.skill.handle_set_stt_language.reset_mock()
         test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
-        test_profile["speech"]["stt_language"] == "en-us"
+        test_profile["speech"]["stt_language"] = "en-us"
         test_message = Message("test", {"Language": "American English"},
                                {"username": "test_user",
                                 "user_profiles": [test_profile]})

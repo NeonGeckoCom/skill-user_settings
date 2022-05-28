@@ -1,1 +1,1 @@
-(is) (?P<Setting>.*)
+(is) (?P<rx_setting>.*)
