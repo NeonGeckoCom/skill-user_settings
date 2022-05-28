@@ -185,14 +185,15 @@ class UserSettingsSkill(NeonSkill):
             self.speak_dialog("speech_speed_slower", private=True)
 
     @intent_handler(IntentBuilder("ChangeLocationTimezone").require("change")
-                    .one_of("timezone", "location").require("Place").build())
+                    .one_of("timezone", "location").require("rx_place")
+                    .build())
     def handle_change_location_timezone(self, message: Message):
         """
         Handle a request to change user configured location or timezone.
         This will prompt the user to update the non-requested setting too
         :param message: Message associated with request
         """
-        requested_place = message.data.get("Place")
+        requested_place = message.data.get("rx_place")
         resolved_place = self._get_location_from_spoken_location(
             requested_place, self.lang)
         if not resolved_place and message.data.get("timezone"):
@@ -397,7 +398,7 @@ class UserSettingsSkill(NeonSkill):
             self.speak_dialog("happy_birthday", private=True)
 
     @intent_handler(IntentBuilder("SetMyEmail").optionally("change")
-                    .require("my").require("email").require("Setting")
+                    .require("my").require("email").require("rx_setting")
                     .build())
     def handle_set_my_email(self, message: Message):
         """
@@ -405,7 +406,7 @@ class UserSettingsSkill(NeonSkill):
        :param message: Message associated with request
        """
         # Parse actual email address from intent
-        extracted = message.data.get("Setting")
+        extracted = message.data.get("rx_setting")
         email_addr: str = extracted.split()[0] + \
             message.data.get("utterance").rsplit(extracted.split()[0])[1]
         dot = read_vocab_file(self.find_resource("dot" + '.voc', 'vocab',
@@ -448,10 +449,10 @@ class UserSettingsSkill(NeonSkill):
             self.speak_dialog("email_not_confirmed", private=True)
 
     @intent_handler(IntentBuilder("SetMyName").optionally("change")
-                    .require("my").require("name").require("Setting")
+                    .require("my").require("name").require("rx_setting")
                     .build())
     @intent_handler(IntentBuilder("MyNameIs").require("my_name_is")
-                    .require("Name").build())
+                    .require("rx_name").build())
     def handle_set_my_name(self, message: Message):
         """
         Handle a request to set a user's name
@@ -460,7 +461,7 @@ class UserSettingsSkill(NeonSkill):
         if not self.neon_in_request(message):
             return
         utterance = message.data.get("utterance")
-        name = message.data.get("Setting") or message.data.get("Name")
+        name = message.data.get("rx_setting") or message.data.get("rx_name")
         if self.voc_match(utterance, "first_name"):
             request = "first_name"
             name = name.title()
@@ -521,7 +522,8 @@ class UserSettingsSkill(NeonSkill):
                                   private=True)
 
     @intent_handler(IntentBuilder("SayMyLanguageSettings")
-                    .require("tell_me_my").require("language_settings").build())
+                    .require("tell_me_my").require("language_settings")
+                    .build())
     @intent_file_handler("language_settings.intent")
     def handle_say_my_language_settings(self, message: Message):
         """
@@ -552,7 +554,7 @@ class UserSettingsSkill(NeonSkill):
 
     @intent_handler(IntentBuilder("SetSTTLanguage").require("change")
                     .optionally("my").require("language_stt")
-                    .require("language").require("Language").build())
+                    .require("language").require("rx_language").build())
     @intent_file_handler("language_stt.intent")
     def handle_set_stt_language(self, message: Message):
         """
@@ -560,7 +562,7 @@ class UserSettingsSkill(NeonSkill):
         :param message: Message associated with request
         """
         lang = self._parse_languages(message.data.get("utterance"))[0] or \
-            message.data.get("Language").split()[-1]
+            message.data.get("rx_language").split()[-1]
         try:
             code, spoken_lang = self._get_lang_code_and_name(lang)
         except UnsupportedLanguageError as e:
@@ -587,15 +589,16 @@ class UserSettingsSkill(NeonSkill):
 
     @intent_handler(IntentBuilder("SetTTSLanguage").require("change")
                     .optionally("my").require("language_tts")
-                    .require("language").require("Language").build())
+                    .require("language").require("rx_language").build())
     @intent_handler(IntentBuilder("TalkToMe").require("speak_to_me")
-                    .require("Language").build())
+                    .require("rx_language").build())
     def handle_set_tts_language(self, message: Message):
         """
         Handle a request to change the language spoken to the user
         :param message: Message associated with request
         """
-        language = message.data.get("Language") or message.data.get("Setting")
+        language = message.data.get("rx_language") or \
+            message.data.get("rx_setting")
         primary, secondary = \
             self._parse_languages(message.data.get("utterance"))
         LOG.info(f"primary={primary} | secondary={secondary} | "
@@ -660,10 +663,11 @@ class UserSettingsSkill(NeonSkill):
             self.speak_dialog("language_not_heard", private=True)
 
     @intent_handler(IntentBuilder("SetPreferredLanguage").require("my")
-                    .require("preferred_language").require("Setting").build())
+                    .require("preferred_language").require("rx_setting")
+                    .build())
     @intent_handler(IntentBuilder("SetMyLanguage").require("change")
                     .require("my").require("language")
-                    .optionally("Language").build())
+                    .optionally("rx_language").build())
     def handle_set_language(self, message: Message):
         """
         Handle a user request to change languages. Checks for improper parsing
@@ -671,6 +675,8 @@ class UserSettingsSkill(NeonSkill):
         :param message: Message associated with request
         """
         utterance = message.data.get("utterance")
+        LOG.info(f"language={message.data.get('language')}")
+        LOG.info(f"preferred_language={message.data.get('preferred_language')}")
         LOG.info(f"Ambiguous language change request: {utterance}")
         if self.voc_match(utterance, "language_stt"):
             LOG.warning("STT Intent not matched")
@@ -683,7 +689,7 @@ class UserSettingsSkill(NeonSkill):
             self.handle_set_tts_language(message)
             try:
                 lang = self._get_lang_code_and_name(
-                    message.data.get("Language", ""))[0]
+                    message.data.get("rx_language", ""))[0]
                 if not lang or lang != \
                         get_user_prefs(message)["speech"]["stt_language"]:
                     self.handle_set_stt_language(message)
@@ -724,7 +730,7 @@ class UserSettingsSkill(NeonSkill):
         if primary_tts:
             try:
                 primary = _get_rx_patterns(primary_tts,
-                                           utterance).group("Primary").strip()
+                                           utterance).group("rx_primary").strip()
             except (IndexError, AttributeError):
                 primary = None
         else:
@@ -733,7 +739,7 @@ class UserSettingsSkill(NeonSkill):
         if secondary_tts:
             try:
                 secondary = _get_rx_patterns(secondary_tts,
-                                             utterance).group("Secondary")\
+                                             utterance).group("rx_secondary")\
                     .strip()
             except (IndexError, AttributeError):
                 secondary = None
