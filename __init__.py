@@ -27,849 +27,841 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import re
-import pytz
-
+from datetime import datetime
+from typing import Optional, Tuple
 from adapt.intent import IntentBuilder
+from dateutil.tz import gettz
+from lingua_franca import load_language
 from mycroft_bus_client import Message
-from mycroft.skills.core import intent_handler
-from datetime import timedelta
-from phoneme_guesser import get_phonemes
-from time import time
+from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
 from neon_utils.logger import LOG
-from neon_utils.location_utils import *
+from neon_utils.user_utils import get_user_prefs
+from lingua_franca.parse import extract_langcode, get_full_lang_code
+from lingua_franca.format import pronounce_lang
+from lingua_franca.internal import UnsupportedLanguageError
+from ovos_utils.file_utils import read_vocab_file
 
-try:
-    import tkinter as tk
-    import tkinter.simpledialog as dialog_box
-except ImportError:
-    LOG.info(f"tk not available")
+from mycroft.skills.core import intent_handler, intent_file_handler
+from mycroft.util.parse import extract_datetime
 
 
-class ControlsSkill(NeonSkill):
-    """
-    Skill to interact with user-specific settings
-    """
+class UserSettingsSkill(NeonSkill):
+    MAX_SPEECH_SPEED = 1.5
+    MIN_SPEECH_SPEED = 0.7
 
     def __init__(self):
-        super(ControlsSkill, self).__init__(name="UserSettingsSkill")
-        # self.clear_wait(True)
-        self.new_ww = ""
-        self.new_loc = ""
-        self.long_lat_dict = {}
-        self.location_dict = {}
+        super(UserSettingsSkill, self).__init__(name="UserSettingsSkill")
 
-    @intent_handler(IntentBuilder("ChangeMeasuring").require("Change").optionally("My").optionally("Time")
-                    .require("Units").optionally("To").one_of("American", "Military").build())
-    def handle_time_unit_change(self, message):
-        # TODO: Move to dialog files DM
-        # self.user_config.check_for_updates()
-        # flac_filename = message.context["flac_filename"]
-        if message.data.get("Time"):
-            LOG.info(message.data.get("Military"))
-            choice = 24 if message.data.get("Military") else 12 if message.data.get("American") else ""
-            if not choice:
-                return
-            if message.data.get("To"):
-                current = self.preference_unit(message)['time']
-                if choice == current:
-                    self.speak("Time is already set to {}-hour format".format(choice), private=True)
-                    return
+    @intent_handler(IntentBuilder("ChangeUnits").require("change")
+                    .require("units").one_of("imperial", "metric").build())
+    def handle_unit_change(self, message: Message):
+        """
+        Handle a request to set metric or imperial units of measurement
+        :param message: Message associated with request
+        """
+        new_unit = "imperial" if message.data.get("imperial") else \
+            "metric" if message.data.get("metric") else None
+        if not new_unit:
+            raise RuntimeError("Missing required imperial or metric vocab")
 
-            self.speak("Okay. Time is set to {} hour format".format(choice), private=True)
-            if self.server:
-                # flac_filename = message.data.get('flac_filename')
-                user_dict = self.build_user_dict(message)
-                user_dict['time'] = choice
-                LOG.info(user_dict)
-                self.socket_emit_to_server("update profile", ["skill", user_dict,
-                                                              message.context["klat_data"]["request_id"]])
-                # self.socket_io_emit(event="update profile", kind="skill",
-                #                     flac_filename=flac_filename, message=user_dict)
-            else:
-                self.user_config.update_yaml_file("units", "time", choice)
-                self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]},
-                                      {"origin": "controls.neon"}))
+        current_unit = get_user_prefs(message)["units"]["measure"]
+        if new_unit == current_unit:
+            self.speak_dialog("units_already_set", {"unit": new_unit},
+                              private=True)
         else:
-            choice = "metric" if message.data.get("Military") else "imperial" \
-                if message.data.get("American") else ""
-            if not choice:
-                return
-            if message.data.get("To"):
-                current = self.preference_unit(message)['measure']
-                if choice == current:
-                    self.speak("Units are already " + choice, private=True)
-                    return
-            self.speak("Okay. Switching my system units to " + choice, private=True)
-            if self.server:
-                user_dict = self.build_user_dict(message)
-                user_dict['measure'] = choice
-                LOG.info(user_dict)
-                self.socket_emit_to_server("update profile", ["skill", user_dict,
-                                                              message.context["klat_data"]["request_id"]])
-                # self.socket_io_emit(event="update profile", kind="skill",
-                #                     flac_filename=flac_filename,  message=user_dict)
-            else:
-                self.user_config.update_yaml_file("units", "measure", choice)
-                # self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]},
-                #                       {"origin": "controls.neon"}))
-        # self.create_signal("NGI_YAML_user_update")
-        # self.user_config._update_yaml_file(header="units", sub_header="time", value=choice)
+            updated_prefs = {"units": {"measure": new_unit}}
+            self.update_profile(updated_prefs, message)
+            self.speak_dialog("units_changed",
+                              {"unit": self.translate(f"word_{new_unit}")},
+                              private=True)
 
-    @intent_handler(IntentBuilder("PermitTranscription").one_of("Permit", "Deny").one_of("Audio", "Text").
-                    require("Transcription").build())
-    def handle_permit_transcription(self, message):
-        options = "text" if message.data.get("Text") else "audio" if message.data.get("Audio") else None
-        user = self.get_utterance_user(message)
-        action = "allow" if message.data.get("Permit") else "stop"
+    @intent_handler(IntentBuilder("ChangeTime").require("change")
+                    .require("time").one_of("half", "full").build())
+    def handle_time_format_change(self, message: Message):
+        """
+        Handle a request to set time format to 12 or 24 hour time
+        :param message: Message associated with request
+        """
+        new_setting = 12 if message.data.get("half") else \
+            24 if message.data.get("full") else None
+        if not new_setting:
+            raise RuntimeError("Missing required time scale vocab")
 
-        # self.speak("Should I allow text transcription?", True, private=True) if options == "text"\
-        #     else self.speak("Should I allow audio transcription?", True, private=True)
-        # TODO: Check if currently enabled/disabled and speak different dialog
-        #       Add server support DM
-        if options == "text":
-            if message.data.get("Permit"):
-                # self.create_signal('PermitAudioTranscription')
-                self.await_confirmation(user, "PermitAudioTranscription")
-            else:
-                self.await_confirmation(user, "DenyAudioTranscription")
-            self.speak_dialog("ConfirmTranscription", {"option": options, "action": action},
-                              expect_response=True, private=True)
-        elif options == "audio":
-            if message.data.get("Permit"):
-                self.await_confirmation(user, "PermitAudioRecording")
-            else:
-                self.await_confirmation(user, "DenyAudioRecording")
-            self.speak_dialog("ConfirmTranscription", {"option": options, "action": action},
-                              expect_response=True, private=True)
-
+        current_setting = get_user_prefs(message)["units"]["time"]
+        if new_setting == current_setting:
+            self.speak_dialog("time_format_already_set",
+                              {"scale": str(new_setting)}, private=True)
         else:
-            # TODO: Speak error DM
-            LOG.error(f"No option in: {message.data}")
-        # self.create_signal('PermitAudioTranscription') if options == "text" else \
-        #     self.create_signal("PermitAudioRecording")
-        # self.handle_wait()
+            updated_prefs = {"units": {"time": new_setting}}
+            self.update_profile(updated_prefs, message)
+            self.speak_dialog("time_format_changed",
+                              {"scale": str(new_setting)}, private=True)
 
-        # self.create_signal('WaitingToConfirm')
-
-    @intent_handler(IntentBuilder("CallYou").require("CallYou").build())
-    def handle_name_change(self, message):
-        self.change_ww(message, ww=message.data.get("utterance").replace(message.data.get("CallYou"), "").strip())
-
-    @intent_handler(IntentBuilder("ChangeWW").optionally("Neon").require("Change").optionally("My").require("WW").
-                    require("To").build())
-    def change_ww(self, message, ww=None):
-        # self.clear_signals("USC")
-        user = self.get_utterance_user(message)
-        self.new_ww = ww
-        if not ww:
-            words = message.data.get('utterance').split()
-            for word in words:
-                if word == 'to':
-                    self.new_ww = ' '.join(words[int(words.index(word) + 1):])
-                    break
-            # self.new_ww = message.data.get("WakeWord")
-            # to_change = message.data.get("utterance").replace(message.data.get("WW"), "").replace(
-            #     message.data.get("To"), "").replace(message.data.get("Change"), "").strip()
-            # to_change = to_change.replace(message.data.get("My"), "").strip() if message.data.get("My") else to_change
-            # LOG.info(to_change)
-            # self.new_ww = to_change
-        LOG.debug(self.new_ww)
-        LOG.info(self.new_ww)
-        self.new_ww = re.compile("[^a-zA-Z ]").sub('', self.new_ww)
-        if len(self.new_ww.split()) < 2:
-            # self.speak("Please pick a longer wake word phrase.", private=True)
-            self.speak_dialog("NeedLongerWakeWord", private=True)
-        # TODO: Check syllables, not words (should be at least 3 syllables) DM
+    @intent_handler(IntentBuilder("SetHesitation").one_of("permit", "deny")
+                    .require("hesitation").build())
+    def handle_speak_hesitation(self, message: Message):
+        """
+        Handle a request for Neon to speak something when intent processing
+        may take some time
+        :param message: Message associated with request
+        """
+        enabled = True if message.data.get("permit") else False
+        self.update_profile({"response_mode": {"hesitation": enabled}})
+        if enabled:
+            self.speak_dialog("hesitation_enabled", private=True)
         else:
-            # self.speak("Change my wake word to {}?".format(self.new_ww), True, private=True)
-            self.speak_dialog("ConfirmNewWakeWord", {"ww": self.new_ww}, True, private=True)
-            self.await_confirmation(user, "wwChange")
-            # self.create_signal("USC_wwChange")
-            # self.handle_wait()
+            self.speak_dialog("hesitation_disabled", private=True)
 
-    @intent_handler(IntentBuilder("UpdateTimeZone").optionally("Neon").require("Change").require("My").
-                    require("TimeZone").require("To").build())
-    def update_timezone(self, message):
-        # flac_filename = message.data.get('flac_filename')
-        user = self.get_utterance_user(message)
-        self.user_config.check_for_updates()
-        self.clear_signals("USC")
-        old_loc = self.preference_location(message)['city']
-        # self.update_location(message, tz_only=True)
-        to_change = message.data.get("utterance").replace(message.data.get("TimeZone"), "").replace(
-            message.data.get("To"), "", 1).replace(message.data.get("Change"), "").strip()
-        to_change = to_change.replace(message.data.get("My"), "", 1).strip() if message.data.get("My") else to_change
-        to_change = to_change.replace(message.data.get("Neon"), "", 1).strip() if message.data.get("Neon") \
-            else to_change
-        to_change = str(to_change).lower()
-        LOG.info(to_change)
-        utc_opts = ['gmt', 'utc']
-        if any(opt in to_change for opt in utc_opts):
-            try:
-                new_utc = float(re.sub(' ', '', re.sub('[a-z]', '', to_change)))
-                LOG.debug(new_utc)
-            except Exception as e:
-                LOG.debug(e)
-                new_utc = 0.0
-            utc_offset = timedelta(hours=new_utc)
-            now = datetime.now(pytz.utc)
-            tz_name = list(tz.zone for tz in map(pytz.timezone, pytz.common_timezones)
-                           if now.astimezone(tz).utcoffset() == utc_offset)[1]
-            self.speak_dialog('ChangeLocation', {"type": "time zone",
-                                                 "location": "UTC " + str(new_utc)}, private=True)
-            self.user_config.update_yaml_file(header="location", sub_header="tz", value=tz_name, multiple=True)
-            self.user_config.update_yaml_file(header="location", sub_header="utc", value=new_utc, final=True)
-            LOG.debug('YML Updates Complete')
-            self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
-        # TODO: Handle Timezone Names DM
+    @intent_handler(IntentBuilder("Transcription").one_of("permit", "deny")
+                    .one_of("audio", "text").require("retention").build())
+    def handle_transcription_retention(self, message: Message):
+        """
+        Handle a request to permit or deny saving audio recordings
+        :param message: Message associated with request
+        """
+        allow = True if message.data.get("permit") else False
+        kind = "save_audio" if message.data.get("audio") else \
+            "save_text" if message.data.get("text") else None
+        if not kind:
+            raise RuntimeError("Missing required transcription type")
 
-        elif self.server:
-            self.change_location(True, True, message)
+        transcription = "word_audio" if kind == "save_audio" else "word_text"
+        enabled = "word_enabled" if allow else "word_disabled"
+
+        current_setting = get_user_prefs(message)["privacy"][kind]
+        if current_setting == allow:
+            self.speak_dialog("transcription_already_set",
+                              {"transcription": self.translate(transcription),
+                               "enabled": self.translate(enabled)},
+                              private=True)
         else:
-            self.new_loc = to_change  # TODO: Associate with user to allow converse for server too? DM
-            self.speak_dialog("AlsoLocation", {"type": "location",
-                                               "old": old_loc,
-                                               "new": to_change.title()}, True, private=True)
-            # self.speak("Would you also like to change your location?", True)
-            self.await_confirmation(user, "tzChange")
-            # self.create_signal("USC_tzChange")
-            # self.handle_wait()
+            updated_prefs = {"privacy": {kind: allow}}
+            self.update_profile(updated_prefs, message)
+            self.speak_dialog("transcription_changed",
+                              {"transcription": self.translate(transcription),
+                               "enabled": self.translate(enabled)},
+                              private=True)
 
-    @intent_handler(IntentBuilder("UpdateLocation").optionally("Neon").require("Change").optionally("My").
-                    require("Location").require("To").build())
-    def update_location(self, message):
-        # flac_filename = message.data.get('flac_filename')
-        user = self.get_utterance_user(message)
-        self.user_config.check_for_updates()
-        self.clear_signals("USC")
-        old_tz = str(self.preference_location(message)['tz']).split('/')[1].replace('_', ' ')
-        to_change = message.data.get("utterance").replace(message.data.get("Location"), "").replace(
-            message.data.get("To"), "", 1).replace(message.data.get("Change"), "").strip()
-        to_change = to_change.replace(message.data.get("My"), "", 1).strip() if message.data.get("My") else to_change
-        to_change = to_change.replace(message.data.get("Neon"), "", 1).strip() if message.data.get("Neon") \
-            else to_change
-        LOG.info(to_change)
-        self.new_loc = to_change
-        if self.server:
-            self.change_location(True, True, message)
+    @intent_handler(IntentBuilder("SpeakSpeed").require("speak_to_me")
+                    .one_of("faster", "slower", "normally").build())
+    def handle_speech_speed(self, message: Message):
+        """
+        Handle a request to adjust response audio playback speed
+        :param message: Message associated with request
+        """
+        current_speed = float(get_user_prefs(message)["speech"].get(
+            "speed_multiplier")) or 1.0
+        if message.data.get("faster"):
+            speed = current_speed / 0.9
+        elif message.data.get("slower"):
+            speed = current_speed * 0.9
+        elif message.data.get("normally"):
+            speed = 1.0
         else:
-            self.speak_dialog("AlsoLocation", {"type": "time",
-                                               "old": old_tz + " time",
-                                               "new": to_change.title() + " time"}, True)
-            # self.speak("Would you also like to change your time zone?", True)
-            self.await_confirmation(user, "locChange")
-            # self.create_signal("USC_locChange")
-            # self.handle_wait()
+            raise RuntimeError("Missing speed keyword")
 
-    def write_ww_change(self):
-        # import os
-        # self.speak("Alright. I'll respond to '{}' from now on".format(self.new_ww), private=True)
-        self.speak_dialog("NewWakeWord", {"ww": self.new_ww}, private=True)
+        if speed < self.MIN_SPEECH_SPEED:
+            speed = self.MIN_SPEECH_SPEED
+        elif speed > self.MAX_SPEECH_SPEED:
+            speed = self.MAX_SPEECH_SPEED
 
-        if self.server:
-            # TODO: Something in user profile? DM
+        speed = round(speed, 1)
+        self.update_profile({"speech": {"speed_multiplier": speed}})
+
+        if speed == current_speed == self.MAX_SPEECH_SPEED:
+            self.speak_dialog("speech_speed_limit",
+                              {"limit": self.translate("word_faster")},
+                              private=True)
+        elif speed == current_speed == self.MIN_SPEECH_SPEED:
+            self.speak_dialog("speech_speed_limit",
+                              {"limit": self.translate("word_slower")},
+                              private=True)
+        elif speed == 1.0:
+            self.speak_dialog("speech_speed_normal", private=True)
+        elif speed > current_speed:
+            self.speak_dialog("speech_speed_faster", private=True)
+        elif speed < current_speed:
+            self.speak_dialog("speech_speed_slower", private=True)
+
+    @intent_handler(IntentBuilder("ChangeLocationTimezone").require("change")
+                    .one_of("timezone", "location").require("rx_place")
+                    .build())
+    def handle_change_location_timezone(self, message: Message):
+        """
+        Handle a request to change user configured location or timezone.
+        This will prompt the user to update the non-requested setting too
+        :param message: Message associated with request
+        """
+        requested_place = message.data.get("rx_place")
+        resolved_place = self._get_location_from_spoken_location(
+            requested_place, self.lang)
+        if not resolved_place and message.data.get("timezone"):
+            # TODO: Try resolving tz by name DM
             pass
-        else:
-            # self.create_signal("NGI_YAML_user_update")
-            self.user_config.update_yaml_file(header="listener", sub_header="wake_word", value=self.new_ww,
-                                              multiple=True)
-            self.user_config.update_yaml_file(header="listener", sub_header="phonemes",
-                                              value=get_phonemes(self.new_ww, "en"))
-            # if not self.check_for_signal("CORE_skipWakeWord", -1):
-            #     # TODO: Better method to restart voice DM
-            #     os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
-            #               self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh voice")
-            # self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
-
-    def change_location(self, do_tz=False, do_loc=False, message=None):
-        start_time = time()
-
-        # Init Variables (these will only be used if they are overwritten)
-        city, state, country, timezone, offset = None, None, None, None, None
-
-        try:
-            if self.new_loc in self.long_lat_dict:
-                LOG.debug(f"DM: location name cache hit: {self.new_loc}")
-                coord = self.long_lat_dict[self.new_loc]
-                lat = coord['lat']
-                lng = coord['lng']
-            else:
-                lat, lng = get_coordinates(self.new_loc)
-                LOG.debug(f"DM: location: lat/lng={lat}, {lng}")
-                if self.new_loc and not (lat == -1 and lng == -1):
-                    self.long_lat_dict[self.new_loc] = {'lat': lat, 'lng': lng}
-                    self.bus.emit(Message('neon.update_cache', {'cache': 'coord_cache', 'dict': self.long_lat_dict}))
-            LOG.debug(f"DM: lat/lng={lat},{lng}, do_tz/do_loc={do_tz},{do_loc}")
-
-            if do_tz:
-                timezone, offset = get_timezone(lat, lng)
-                LOG.debug(f"timezone={timezone} offset={offset}")
-            if do_loc:
-                if f"{lat}, {lng}" in self.location_dict:
-                    results = self.location_dict[f"{lat}, {lng}"]
-                    LOG.debug(f"DM: results={results}")
-                    city = results["city"]
-                    state = results["state"]
-                    country = results["country"]
-                    LOG.debug(f"DM: cache time={time() - start_time}")
-                else:
-                    LOG.debug("DM: Lookup location from coords")
-                    city, county, state, country = get_location(lat, lng)
-                    if not city:
-                        city = self.new_loc.split()[0].title()
-                    LOG.debug(f"{city}, {county}, {state}, {country}")
-                    if city and state and country and not (lat == -1 and lng == -1):
-                        self.location_dict[f"{lat}, {lng}"] = {'city': city, 'state': state, 'country': country}
-                        self.bus.emit(Message('neon.update_cache', {'cache': 'location_cache',
-                                                                    'dict': self.location_dict}))
-                    LOG.debug(f"DM: lookup time={time() - start_time}")
-        except Exception as e:
-            if not do_loc:
-                pass
-                # TODO: Try to process TZ names/offsets
-            LOG.error(e)
-            self.speak("It looks like there was a problem with your entered location. Please, try again.", private=True)
+        if not resolved_place:
+            self.speak_dialog("location_not_found",
+                              {"location": requested_place},
+                              private=True)
             return
 
-        if self.server:
-            self.speak("I am updating your user profile.", private=True)
-            # flac_filename = message.context["flac_filename"]
-            user_dict = self.build_user_dict(message)
-            user_dict['lat'] = lat
-            user_dict['lng'] = lng
-            LOG.debug(f"do_loc={do_loc}")
-            if do_loc:
-                user_dict['city'] = city
-                user_dict['state'] = state
-                user_dict['country'] = country
-            LOG.debug(f"do_tz={do_tz}")
-            if do_tz:
-                user_dict['tz'] = timezone
-                user_dict['utc'] = offset
-            LOG.info("user_dict: " + str(user_dict))
-            self.socket_emit_to_server("update profile", ["skill", user_dict,
-                                                          message.context["klat_data"]["request_id"]])
-            # self.socket_io_emit(event="update profile", kind="skill",
-            #                     flac_filename=flac_filename, message=user_dict)
-        # self.socket_io_emit(event="location update", message={'lat': lat,
-        #                                                       'lng': lng,
-        #                                                       'city': city,
-        #                                                       'state': state,
-        #                                                       'country': country,
-        #                                                       'nick': get_chat_nickname_from_filename(flac_filename)
-        #                                                       })
+        tz_name, utc_offset = get_timezone(resolved_place["lat"],
+                                           resolved_place["lon"])
+        if message.data.get("timezone"):
+            do_timezone = True
+            do_location = self.ask_yesno(
+                "also_change_location_tz",
+                {"type": self.translate("word_location"),
+                 "new": requested_place}) == "yes"
+        elif message.data.get("location"):
+            do_location = True
+            do_timezone = self.ask_yesno(
+                "also_change_location_tz",
+                {"type": self.translate("word_timezone"),
+                 "new": requested_place}) == "yes"
         else:
-            if do_loc:
-                # TODO: Catch null values before error thrown here!! DM
-                self.speak_dialog('ChangeLocation', {"type": "location",
-                                                     "location": city + ', ' + state + ', ' + country}, private=True)
-                self.user_config.update_yaml_file(header="location", sub_header="lat", value=lat, multiple=True)
-                self.user_config.update_yaml_file(header="location", sub_header="lng", value=lng, multiple=True)
-                self.user_config.update_yaml_file(header="location", sub_header="city", value=city, multiple=True)
-                self.user_config.update_yaml_file(header="location", sub_header="state", value=state, multiple=True)
-                if not do_tz:
-                    self.user_config.update_yaml_file(header="location", sub_header="country",
-                                                      value=country, final=True)
-                    # LOG.debug('YML Updates Complete')
-                else:
-                    self.user_config.update_yaml_file(header="location", sub_header="country",
-                                                      value=country, multiple=True)
+            do_location = False
+            do_timezone = False
 
-            if do_tz:
-                self.speak_dialog('ChangeLocation',
-                                  {"type": "time zone",
-                                   "location": f'<say-as interpret-as="characters">UTC</say-as> {offset}'},
+        if do_timezone:
+            self.update_profile({"location": {"tz": tz_name,
+                                              "utc": utc_offset}})
+            self.speak_dialog("change_location_tz",
+                              {"type": self.translate("word_timezone"),
+                               "location": f"UTC {utc_offset}"},
+                              private=True)
+        if do_location:
+            self.update_profile({'location': {
+                'city': resolved_place['address']['city'],
+                'state': resolved_place['address'].get('state'),
+                'country': resolved_place['address']['country'],
+                'lat': float(resolved_place['lat']),
+                'lng': float(resolved_place['lon'])}})
+            self.speak_dialog("change_location_tz",
+                              {"type": self.translate("word_location"),
+                               "location": resolved_place['address']['city']},
+                              private=True)
+
+    @intent_handler(IntentBuilder("change_dialog").require("change")
+                    .require("dialog_mode").one_of("random", "limited")
+                    .build())
+    def handle_change_dialog_mode(self, message: Message):
+        """
+        Handle a request to switch between normal and limited dialog modes
+        :param message: Message associated with request
+        """
+        new_dialog = "word_random" if message.data.get("random") else \
+            "word_limited" if message.data.get("limited") else None
+        if not new_dialog:
+            raise RuntimeError("Missing required dialog mode")
+        new_limit_dialog = new_dialog == "word_limited"
+        current_limit_dialog = get_user_prefs(message)["response_mode"].get(
+            "limit_dialog", False)
+
+        if new_limit_dialog == current_limit_dialog:
+            self.speak_dialog("dialog_mode_already_set",
+                              {"response": self.translate(new_dialog)},
+                              private=True)
+            return
+
+        self.update_profile(
+            {"response_mode": {"limit_dialog": new_limit_dialog}})
+        self.speak_dialog("dialog_mode_changed",
+                          {"response": self.translate(new_dialog)},
+                          private=True)
+
+    @intent_handler(IntentBuilder("SayMyName").require("tell_me_my")
+                    .require("name").build())
+    def handle_say_my_name(self, message: Message):
+        """
+        Handle a request to read back a user's name
+        :param message: Message associated with request
+        """
+        if not self.neon_in_request(message):
+            return
+        utterance = message.data.get("utterance")
+        profile = get_user_prefs(message)
+
+        if not any((profile["user"]["first_name"],
+                    profile["user"]["middle_name"],
+                    profile["user"]["last_name"],
+                    profile["user"]["preferred_name"],
+                    profile["user"]["full_name"],
+                    profile["user"]["username"])):
+            # TODO: Use get_response to ask for the user's name
+            self.speak_dialog(
+                "name_not_known",
+                {"name_position": self.translate("word_name")},
+                private=True)
+            return
+        if self.voc_match(utterance, "first_name"):
+            name = profile["user"]["first_name"]
+            request = "word_first_name"
+        elif self.voc_match(utterance, "middle_name"):
+            name = profile["user"]["middle_name"]
+            request = "word_middle_name"
+        elif self.voc_match(utterance, "last_name"):
+            name = profile["user"]["last_name"]
+            request = "word_last_name"
+        elif self.voc_match(utterance, "preferred_name"):
+            name = profile["user"]["preferred_name"]
+            request = "word_preferred_name"
+        elif self.voc_match(utterance, "full_name"):
+            name = profile["user"]["full_name"]
+            request = "word_full_name"
+        elif self.voc_match(utterance, "username"):
+            name = profile["user"]["username"]
+            request = "word_username"
+        else:
+            name = profile["user"]["preferred_name"] or \
+                   profile["user"]["first_name"] or \
+                   profile["user"]["username"]
+            request = "word_name"
+
+        if not name:
+            # TODO: Use get_response to ask for the user's name
+            self.speak_dialog("name_not_known",
+                              {"name_position": self.translate(request)},
+                              private=True)
+        else:
+            self.speak_dialog("name_is",
+                              {"name_position": self.translate(request),
+                               "name": name}, private=True)
+
+    @intent_handler(IntentBuilder("SayMyEmail").require("tell_me_my")
+                    .require("email").build())
+    def handle_say_my_email(self, message: Message):
+        """
+        Handle a request to read back the user's email address
+        :param message: Message associated with request
+        """
+        if not self.neon_in_request(message):
+            return
+        email_address = get_user_prefs(message)["user"]["email"]
+        if not email_address:
+            # TODO: Use get_response to ask for the user's email
+            self.speak_dialog("email_not_known", private=True)
+        else:
+            self.speak_dialog("email_is", {"email": email_address},
+                              private=True)
+
+    @intent_handler(IntentBuilder("SayMyLocation").require("tell_me_my")
+                    .require("location").build())
+    @intent_file_handler("where_am_i.intent")
+    def handle_say_my_location(self, message: Message):
+        """
+        Handle a request to read back the user's location
+        :param message: Message associated with request
+        """
+        if not self.neon_in_request(message):
+            return
+        location_prefs = get_user_prefs(message)["location"]
+        friendly_location = ", ".join([x for x in
+                                       (location_prefs["city"],
+                                        location_prefs["state"] or
+                                        location_prefs["country"])])
+        self.speak_dialog("location_is", {"location": friendly_location},
+                          private=True)
+
+    @intent_handler(IntentBuilder("SetMyBirthday").require("my")
+                    .require("birthday").build())
+    def handle_set_my_birthday(self, message: Message):
+        """
+        Handle a request to set a user's birthday
+        :param message: Message associated with request
+        """
+        if not self.neon_in_request(message):
+            return
+        load_language(self.lang)
+
+        user_tz = gettz(self.preference_location(message)['tz']) or self.sys_tz
+        now_time = datetime.now(user_tz)
+        try:
+            birth_date, _ = extract_datetime(message.data.get("utterance"),
+                                             now_time, self.lang)
+        except IndexError:
+            self.speak_dialog("birthday_not_heard", private=True)
+            return
+
+        formatted_birthday = birth_date.strftime("%Y/%m/%d")
+        # TODO: Update to use LF when method added for month + date format
+        # anchor_date = now_time.replace(year=birth_date.year)
+        # speakable_birthday = nice_date(birth_date, now=anchor_date)
+        speakable_birthday = birth_date.strftime("%B %-d")
+
+        self.update_profile({"user": {"dob": formatted_birthday}}, message)
+        self.speak_dialog("birthday_confirmed",
+                          {"birthday": speakable_birthday}, private=True)
+
+        if birth_date.month == now_time.month and \
+                birth_date.day == now_time.day:
+            self.speak_dialog("happy_birthday", private=True)
+
+    @intent_handler(IntentBuilder("SetMyEmail").optionally("change")
+                    .require("my").require("email").require("rx_setting")
+                    .build())
+    def handle_set_my_email(self, message: Message):
+        """
+       Handle a request to set a user's email address
+       :param message: Message associated with request
+       """
+        # Parse actual email address from intent
+        extracted = message.data.get("rx_setting")
+        email_addr: str = extracted.split()[0] + \
+            message.data.get("utterance").rsplit(extracted.split()[0])[1]
+        dot = read_vocab_file(self.find_resource("dot" + '.voc', 'vocab',
+                                                 lang=self.lang))[0][0]
+        at = read_vocab_file(self.find_resource("at" + '.voc', 'vocab',
+                                                lang=self.lang))[0][0]
+        email_words = email_addr.split()
+        if dot in email_words:
+            email_words[email_words.index(dot)] = "."
+        if at in email_words:
+            email_words[email_words.index(at)] = "@"
+        email_addr = "".join(email_words)
+        LOG.info(email_addr)
+
+        if '@' not in email_addr or '.' not in email_addr.split('@')[1]:
+            self.speak_dialog("email_set_error", private=True)
+            return
+
+        current_email = get_user_prefs(message)["user"]["email"]
+        if current_email and email_addr == current_email:
+            self.speak_dialog("email_already_set_same",
+                              {"email": current_email}, private=True)
+            return
+        if current_email:
+            if self.ask_yesno("email_overwrite", {"old": current_email,
+                                                  "new": email_addr}) == "yes":
+                self.update_profile({"user": {"email": email_addr}})
+                self.speak_dialog("email_set", {"email": email_addr},
                                   private=True)
-                self.user_config.update_yaml_file(header="location", sub_header="tz", value=timezone, multiple=True)
-                self.user_config.update_yaml_file(header="location", sub_header="utc", value=offset, final=True)
-                # LOG.debug('YML Updates Complete')
-            # self.speak("Changing location to {}".format(to_change))
-            # self.create_signal("NGI_YAML_user_update")
-            # self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
-
-    @intent_handler(IntentBuilder("NeonBrain").optionally("Permit").optionally("Deny").require("Show").
-                    require("Brain").optionally("OnStartup").build())
-    def handle_brain(self, message):
-        self.user_config.check_for_updates()
-        # self.create_signal("NGI_YAML_user_update")
-        if message.data.get("Permit") or not message.data.get("Deny"):
-            self.speak("Launching Neon Brain.", private=True)
-            self.user_config.update_yaml_file(header="interface", sub_header="display_neon_brain", value=True)
+            else:
+                self.speak_dialog("email_not_changed",
+                                  {"email": current_email}, private=True)
+            return
+        if self.ask_yesno("email_confirmation",
+                          {"email": email_addr}) == "yes":
+            self.update_profile({"user": {"email": email_addr}})
+            self.speak_dialog("email_set", {"email": email_addr},
+                              private=True)
         else:
-            self.speak("Hiding Neon Brain.", private=True)
-            self.user_config.update_yaml_file(header="interface", sub_header="display_neon_brain", value=False)
-        self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
+            self.speak_dialog("email_not_confirmed", private=True)
 
-    @intent_handler(IntentBuilder("ConfirmListening").optionally("Permit").optionally("Deny").
-                    require("ConfirmListening").optionally("OnStartup").optionally("With").optionally("WW").build())
-    def handle_confirm_listening(self, message):
-        # import os
-        # self.user_config.check_for_updates()
-        # self.create_signal("NGI_YAML_user_update")
-        if message.data.get("Permit"):
-            self.speak("I will chime when I hear my wake word.", private=True)
-            self.local_config.update_yaml_file(header="interface", sub_header="confirm_listening", value=True)
+    @intent_handler(IntentBuilder("SetMyName").optionally("change")
+                    .require("my").require("name").require("rx_setting")
+                    .build())
+    @intent_handler(IntentBuilder("MyNameIs").require("my_name_is")
+                    .require("rx_name").build())
+    def handle_set_my_name(self, message: Message):
+        """
+        Handle a request to set a user's name
+        :param message: Message associated with request
+        """
+        if not self.neon_in_request(message):
+            return
+        utterance = message.data.get("utterance")
+        name = message.data.get("rx_setting") or message.data.get("rx_name")
+        if self.voc_match(utterance, "first_name"):
+            request = "first_name"
+            name = name.title()
+        elif self.voc_match(utterance, "middle_name"):
+            name = name.title()
+            request = "middle_name"
+        elif self.voc_match(utterance, "last_name"):
+            name = name.title()
+            request = "last_name"
+        elif self.voc_match(utterance, "preferred_name"):
+            name = name.title()
+            request = "preferred_name"
+        # TODO: Consider setting username and updating all references
+        # elif self.voc_match(utterance, "username"):
+        #     request = "username"
         else:
-            self.speak("I will stop making noise when I hear my wake word", private=True)
-            self.local_config.update_yaml_file(header="interface", sub_header="confirm_listening", value=False)
-        # self.bus.emit(Message('check.yml.updates', {"modified": ["ngi_user_info"]}, {"origin": "controls.neon"}))
+            name = name.title()
+            request = None
 
-        # TODO: Restart voice/update config DM
-        # if not self.check_for_signal("CORE_skipWakeWord", -1):
-        #     os.system("sudo -H -u " + self.configuration_available['devVars']['installUser'] + ' ' +
-        #               self.configuration_available['dirVars']['coreDir'] + "/start_neon.sh voice")
+        user_profile = get_user_prefs(message)["user"]
 
-    @intent_handler(IntentBuilder("SpeakSpeed").require("Talk").require("Speed").build())
-    def handle_speak_faster(self, message):
-        self.user_config.check_for_updates()
-        if "slower" in message.data.get("Speed"):
-            speed = (float(self.preference_speech(message).get('speed_multiplier', 1.0)) * 0.9)
-            if speed < 0.7:
-                speed = 0.7
-                phrase = "I cannot talk any slower."
+        if request:
+            if name == user_profile[request]:
+                self.speak_dialog(
+                    "name_not_changed",
+                    {"position": self.translate(f"word_{request}"),
+                     "name": name}, private=True)
             else:
-                phrase = "I will talk slower."
-        elif "faster" in message.data.get("Speed"):
-            speed = (float(self.preference_speech(message).get('speed_multiplier', 1.0)) / 0.9)
-            if speed > 1.5:
-                speed = 1.5
-                phrase = "I cannot talk any faster."
-            else:
-                phrase = "I will talk faster."
+                name_parts = (name if request == n else user_profile.get(n)
+                              for n in ("first_name", "middle_name",
+                                        "last_name"))
+                full_name = " ".join((n for n in name_parts if n))
+                self.update_profile({"user": {request: name,
+                                              "full_name": full_name}},
+                                    message)
+                self.speak_dialog(
+                    "name_set_part",
+                    {"position": self.translate(f"word_{request}"),
+                     "name": name}, private=True)
         else:
-            speed = 1.0
-            phrase = "I will talk normally."
-
-        # self.create_signal("NGI_YAML_user_update")
-        self.user_config.update_yaml_file(header="speech", sub_header="speed_multiplier", value=speed)
-        self.create_signal("USC_speak_speed")
-        self.speak(phrase, private=True)
-        # self.bus.emit(Message('check.yml.updates'))
-
-    # @intent_handler(IntentBuilder("ClapMenu").require("ClapperMenu").build())
-    # def handle_tell_me_clap(self, message):
-    #     if self.check_for_signal('CLAP_audio', -1):
-    #         list_clap = self.user_info_available['clap_sets']['audio']
-    #     elif self.check_for_signal('CLAP_home', -1):
-    #         list_clap = self.user_info_available['clap_sets']['home']
-    #     else:
-    #         list_clap = self.user_info_available['clap_sets']['default']
-    #     # list_clap = options
-    #     LOG.info(list_clap)
-    #     if list_clap:
-    #         self.speak("Sure. Your clapper options are:", private=True)
-    #         for i in range(1, len(list_clap)):
-    #             self.speak("{} claps to {}.".format(i, list_clap[i]), private=True) if list_clap[i] \
-    #                 else LOG.info("No command")
-
-    @intent_handler(IntentBuilder("ListCommands").require("TellMe").optionally("My").one_of("Clap", "Blink")
-                    .require("Commands").build())
-    def handle_list_gestures(self, message):
-        LOG.info(message.data)
-        # TODO: simplify below code DM
-        if message.data.get("Clap", None):
-            if self.check_for_signal('CLAP_audio', -1):
-                list_clap = self.preference_skill(message)['audio_claps']
-            elif self.check_for_signal('CLAP_home', -1):
-                list_clap = self.preference_skill(message)['home_claps']
+            preferred_name = user_profile["preferred_name"] or name
+            name_parts = self._get_name_parts(name, user_profile)
+            if preferred_name == user_profile["first_name"] and \
+                    "first_name" in name_parts:
+                preferred_name = name_parts["first_name"]
+            updated_user_profile = {"preferred_name": preferred_name,
+                                    **name_parts}
+            if all((user_profile[n] == updated_user_profile.get(n) for n in
+                    ("first_name", "middle_name", "last_name"))):
+                self.speak_dialog("name_not_changed",
+                                  {"position": self.translate(f"word_name"),
+                                   "name": name})
             else:
-                list_clap = self.preference_skill(message)['default_claps']
-            # list_clap = options
-            LOG.info(list_clap)
-            if list_clap:
-                self.speak_dialog("ListGestures", {"gesture": "clap"}, private=True)
-                for i in range(1, len(list_clap)):
-                    self.speak("{} claps to {}.".format(i, list_clap[i]), private=True) if list_clap[i] \
-                        else LOG.info("No command")
-        elif message.data.get("Blink", None):
-            if self.check_for_signal('BLINK_audio', -1):
-                list_blink = self.preference_skill(message)['audio_claps']
-            elif self.check_for_signal('BLINK_home', -1):
-                list_blink = self.preference_skill(message)['home_claps']
-            else:
-                list_blink = self.preference_skill(message)['default_claps']
-            # list_blink = options
-            LOG.info(list_blink)
-            if list_blink:
-                self.speak_dialog("ListGestures", {"gesture": "blink"}, private=True)
-                for i in range(1, len(list_blink)):
-                    self.speak("{} blinks to {}.".format(i, list_blink[i]), private=True) if list_blink[i] \
-                        else LOG.info("No command")
+                self.update_profile({"user": updated_user_profile}, message)
+                self.speak_dialog("name_set_full",
+                                  {"nick": preferred_name,
+                                   "name": name_parts["full_name"]},
+                                  private=True)
 
-    @intent_handler(IntentBuilder("ClapSet").require("SetChange").optionally("My").
-                    one_of("Clap", "Blink").require("To").require("AudioHome").optionally("Scene").build())
-    def handle_change_clap_blink_set(self, message):
-        # TODO: Simplify this function DM
-        if message.data.get("Clap"):
-            self.check_for_signal('CLAP_audio')
-            self.check_for_signal('CLAP_home')
-            if "audio" in message.data.get("utterance"):
-                # self.create_signal("NGI_YAML_user_update")
-                # self.user_config._update_yaml_file(header="claps", value=self.audio_set)
-                option = "the audio set"
-                self.create_signal('CLAP_audio')
-            elif "home" in message.data.get("utterance"):
-                # self.create_signal("NGI_YAML_user_update")
-                # self.user_config._update_yaml_file(header="claps", value=self.home_control_set)
-                option = "the home control set"
-                self.create_signal('CLAP_home')
-            elif "default" in message.data.get("utterance"):
-                option = "the default set"
-            else:
-                self.speak("Clap option not found, switching to default.", private=True)
-                return
-            self.speak("Updating your clapper settings to {}.".format(option), private=True)
-        elif message.data.get("Blink"):
-            self.check_for_signal('BLINK_audio')
-            self.check_for_signal('BLINK_home')
-            if "audio" in message.data.get("utterance"):
-                # self.create_signal("NGI_YAML_user_update")
-                # self.user_config._update_yaml_file(header="claps", value=self.audio_set)
-                option = "the audio set"
-                self.create_signal('BLINK_audio')
-            elif "home" in message.data.get("utterance"):
-                # self.create_signal("NGI_YAML_user_update")
-                # self.user_config._update_yaml_file(header="claps", value=self.home_control_set)
-                option = "the home control set"
-                self.create_signal('BLINK_home')
-            elif "default" in message.data.get("utterance"):
-                option = "the default set"
-            else:
-                self.speak("Blink option not found, switching to default.", private=True)
-                return
-            self.speak("Updating your blinker settings to {}.".format(option), private=True)
+    @intent_handler(IntentBuilder("SayMyLanguageSettings")
+                    .require("tell_me_my").require("language_settings")
+                    .build())
+    @intent_file_handler("language_settings.intent")
+    def handle_say_my_language_settings(self, message: Message):
+        """
+        Handle a request to read back the user's language settings
+        :param message: Message associated with request
+        """
+        load_language(self.lang)
+        language_settings = get_user_prefs(message)["speech"]
+        primary_lang = pronounce_lang(language_settings["tts_language"])
+        second_lang = pronounce_lang(
+            language_settings["secondary_tts_language"])
+        self.speak_dialog("language_setting",
+                          {"primary": self.translate("word_primary"),
+                           "language": primary_lang,
+                           "gender": self.translate(
+                               f'word_{language_settings["tts_gender"]}')},
+                          private=True)
+        if second_lang and (second_lang != primary_lang or
+                            language_settings["tts_gender"] !=
+                            language_settings["secondary_tts_gender"]):
+            self.speak_dialog(
+                "language_setting",
+                {"primary": self.translate("word_secondary"),
+                 "language": second_lang,
+                 "gender": self.translate(
+                     f'word_{language_settings["secondary_tts_gender"]}')},
+                private=True)
 
-    # @intent_handler(IntentBuilder("BlinkMenu").require("BlinkerMenu").build())
-    # def handle_tell_me_blink(self, message):
-    #     if self.check_for_signal('BLINK_audio', -1):
-    #         list_clap = self.user_info_available['clap_sets']['audio']
-    #     elif self.check_for_signal('BLINK_home', -1):
-    #         list_clap = self.user_info_available['clap_sets']['home']
-    #     else:
-    #         list_clap = self.user_info_available['clap_sets']['default']
-    #     # list_clap = options
-    #     LOG.info(list_clap)
-    #     if list_clap:
-    #         self.speak("Sure. Your blink options are:", private=True)
-    #         for i in range(1, len(list_clap)):
-    #             self.speak("{} blinks to {}.".format(i, list_clap[i]), private=True) if list_clap[i] \
-    #                 else LOG.info("No command")
+    @intent_handler(IntentBuilder("SetSTTLanguage").require("change")
+                    .optionally("my").require("language_stt")
+                    .require("language").require("rx_language").build())
+    @intent_file_handler("language_stt.intent")
+    def handle_set_stt_language(self, message: Message):
+        """
+        Handle a request to change the language spoken by the user
+        :param message: Message associated with request
+        """
+        lang = self._parse_languages(message.data.get("utterance"))[0] or \
+            message.data.get("rx_language").split()[-1]
+        try:
+            code, spoken_lang = self._get_lang_code_and_name(lang)
+        except UnsupportedLanguageError as e:
+            LOG.error(e)
+            self.speak_dialog("language_not_recognized", {"lang": lang},
+                              private=True)
+            return
 
-    # @intent_handler(IntentBuilder("BlinkSet").require("SetChange").optionally("My").
-    #                 require("Blink").require("To").require("AudioHome").optionally("Scene").build())
-    # def handle_set_blinker_to_set(self, message):
-    #     self.check_for_signal('BLINK_audio')
-    #     self.check_for_signal('BLINK_home')
-    #     if "audio" in message.data.get("utterance"):
-    #         # self.create_signal("NGI_YAML_user_update")
-    #         # self.user_config._update_yaml_file(header="claps", value=self.audio_set)
-    #         option = "the audio set"
-    #         self.create_signal('BLINK_audio')
-    #     elif "home" in message.data.get("utterance"):
-    #         # self.create_signal("NGI_YAML_user_update")
-    #         # self.user_config._update_yaml_file(header="claps", value=self.home_control_set)
-    #         option = "the home control set"
-    #         self.create_signal('BLINK_home')
-    #     elif "default" in message.data.get("utterance"):
-    #         option = "the default set"
-    #     else:
-    #         self.speak("Blink option not found, switching to default.", private=True)
-    #         return
-    #     self.speak("Updating your blinker settings to {}.".format(option), private=True)
+        LOG.info(f"code={code}")
+        dialog_data = {"io": self.translate("word_stt"),
+                       "lang": spoken_lang}
+        if code == get_user_prefs(message)["speech"]["stt_language"]:
+            self.speak_dialog("language_not_changed", dialog_data,
+                              private=True)
+            return
 
-    @intent_handler(IntentBuilder("Hesitation").one_of("Permit", "Deny").require("Hesitation").build())
-    def handle_speak_hesitation(self, message):
-        # LOG.info("In hesitation")
-        # TODO: This should be a user property, not a signal? DM
-        if message.data.get("Permit"):
-            self.speak("I will say something when I have to look up a response.", private=True)
-            self.create_signal("CORE_useHesitation")
-        elif message.data.get("Deny"):
-            self.speak("I will only speak when I have a response ready.", private=True)
-            self.check_for_signal("CORE_useHesitation")
+        if self.ask_yesno("language_change_confirmation",
+                          dialog_data) == "yes":
+            self.update_profile({"speech": {"stt_language": code}})
+            self.speak_dialog("language_set", dialog_data,
+                              private=True)
+        else:
+            self.speak_dialog("language_not_confirmed", private=True)
 
-    # @intent_handler(IntentBuilder("NoHesitation").require("Deny").require("Hesitation").build())
-    # def handle_turn_off_hesitation(self, message):
-    #     LOG.info("In hesitation")
-    #     self.speak("I will only speak when I have a response ready.", private=True)
-    #     self.check_for_signal("CORE_useHesitation")
+    @intent_handler(IntentBuilder("SetTTSLanguage").require("change")
+                    .optionally("my").require("language_tts")
+                    .require("language").require("rx_language").build())
+    @intent_handler(IntentBuilder("TalkToMe").require("speak_to_me")
+                    .require("rx_language").build())
+    def handle_set_tts_language(self, message: Message):
+        """
+        Handle a request to change the language spoken to the user
+        :param message: Message associated with request
+        """
+        language = message.data.get("rx_language") or \
+            message.data.get("rx_setting")
+        primary, secondary = \
+            self._parse_languages(message.data.get("utterance"))
+        LOG.info(f"primary={primary} | secondary={secondary} | "
+                 f"language={language}")
+        user_settings = get_user_prefs(message)
+        if primary:
+            try:
+                primary_code, primary_spoken = \
+                    self._get_lang_code_and_name(primary)
+                LOG.info(f"primary={primary_code}")
+                gender = self._get_gender(primary) or \
+                    user_settings["speech"]["tts_gender"]
+                self.update_profile({"speech": {"tts_gender": gender,
+                                                "tts_language": primary_code}},
+                                    message)
+                self.speak_dialog("language_set",
+                                  {"io": self.translate("word_primary"),
+                                   "lang": primary_spoken}, private=True)
+            except UnsupportedLanguageError:
+                LOG.warning(f"No language for primary request: {primary}")
+                self.speak_dialog("language_not_recognized", {"lang": primary},
+                                  private=True)
+        if secondary:
+            try:
+                secondary_code, secondary_spoken = \
+                    self._get_lang_code_and_name(secondary)
+                LOG.info(f"secondary={secondary_code}")
+                gender = self._get_gender(secondary) or \
+                    user_settings["speech"]["secondary_tts_gender"]
+                self.update_profile(
+                    {"speech": {"secondary_tts_gender": gender,
+                                "secondary_tts_language": secondary_code}},
+                    message)
+                self.speak_dialog("language_set",
+                                  {"io": self.translate("word_secondary"),
+                                   "lang": secondary_spoken}, private=True)
+            except UnsupportedLanguageError:
+                LOG.warning(f"No language for secondary request: {secondary}")
+                self.speak_dialog("language_not_recognized",
+                                  {"lang": secondary}, private=True)
 
-    def converse(self, message=None):
-        user = self.get_utterance_user(message)
-        LOG.debug(self.actions_to_confirm)
-        if user in self.actions_to_confirm.keys():
-            result = self.check_yes_no_response(message)
-            if result == -1:
-                # This isn't a response, ignore it
-                return False
-            elif not result:
-                # Filler speech to let the user know we're working on something
-                if self.check_for_signal('CORE_useHesitation', -1):
-                    self.speak("Okay.", private=True)
+        if any((primary, secondary)):
+            return
+        if language:
+            try:
+                code, spoken = \
+                    self._get_lang_code_and_name(language)
+                gender = self._get_gender(language) or \
+                    user_settings["speech"]["tts_gender"]
+                self.update_profile({"speech": {"tts_gender": gender,
+                                                "tts_language": code}},
+                                    message)
+                self.speak_dialog("language_set",
+                                  {"io": self.translate("word_primary"),
+                                   "lang": spoken}, private=True)
+            except UnsupportedLanguageError:
+                LOG.warning(f"No language for secondary request: {language}")
+                self.speak_dialog("language_not_recognized",
+                                  {"lang": language}, private=True)
+        else:
+            LOG.warning("No language parsed")
+            self.speak_dialog("language_not_heard", private=True)
 
-                actions_requested = self.actions_to_confirm.pop(user)
-                if "wwChange" in actions_requested:
-                    self.speak("Please try again or type my new name in the field", private=True)
-                    try:
-                        parent = tk.Tk()
-                        parent.withdraw()
-                        self.new_ww = dialog_box.askstring("Wake Words", "Please enter your desired wake words:")
-                        parent.quit()
-                        LOG.info(self.new_ww)
-                    except Exception as e:
-                        LOG.info(e)
-                    if self.new_ww:
-                        self.write_ww_change()
-                    else:
-                        self.speak("I did not receive any parameters. Please, try again.", private=True)
+    @intent_handler(IntentBuilder("SetPreferredLanguage").require("my")
+                    .require("preferred_language").require("rx_setting")
+                    .build())
+    @intent_handler(IntentBuilder("SetMyLanguage").require("change")
+                    .require("my").require("language")
+                    .optionally("rx_language").build())
+    def handle_set_language(self, message: Message):
+        """
+        Handle a user request to change languages. Checks for improper parsing
+        of STT/TTS keywords and otherwise updates both STT and TTS settings.
+        :param message: Message associated with request
+        """
+        utterance = message.data.get("utterance")
+        LOG.info(f"language={message.data.get('language')}")
+        LOG.info(f"preferred_language={message.data.get('preferred_language')}")
+        LOG.info(f"Ambiguous language change request: {utterance}")
+        if self.voc_match(utterance, "language_stt"):
+            LOG.warning("STT Intent not matched")
+            self.handle_set_stt_language(message)
+        elif self.voc_match(utterance, "language_tts"):
+            LOG.warning("TTS Intent not matched")
+            self.handle_set_tts_language(message)
+        else:
+            LOG.info("General language change request, handle STT+TTS")
+            self.handle_set_tts_language(message)
+            try:
+                lang = self._get_lang_code_and_name(
+                    message.data.get("rx_language", ""))[0]
+                if not lang or lang != \
+                        get_user_prefs(message)["speech"]["stt_language"]:
+                    self.handle_set_stt_language(message)
+            except UnsupportedLanguageError:
+                pass
 
-                    self.new_ww = ""
-                elif "tzChange" in actions_requested:
-                    # elif self.check_for_signal("USC_tzChange"):
-                    self.change_location(do_tz=True, do_loc=False, message=message)
-                elif "locChange" in actions_requested:
-                    # elif self.check_for_signal("USC_locChange"):
-                    self.change_location(do_tz=False, do_loc=True, message=message)
-                else:
-                    LOG.info(actions_requested)
-                    self.speak_dialog("ActionNotConfirmed", private=True)
-                self.cancel_scheduled_event(f"{user}_{actions_requested[0]}")
-                return True
-            elif result:
-                # Filler speech to let the user know we're working on something
-                if self.check_for_signal('CORE_useHesitation', -1):
-                    self.speak("Sounds good.", private=True)
+    @intent_handler(IntentBuilder("NoSecondaryLanguage")
+                    .require("no_secondary_language").build())
+    def handle_no_secondary_language(self, message: Message):
+        """
+        Handle a user request to only hear responses in one language
+        :param message: Message associated with request
+        """
+        self.update_profile({"speech": {"secondary_tts_language": "",
+                                        "secondary_neon_voice": ""}},
+                            message)
+        self.speak_dialog("only_one_language", private=True)
 
-                # self.user_config.check_for_updates()
-                LOG.info(message)
-                # 0 index works because this skill only handles one action per confirmation
-                action_requested = self.actions_to_confirm.pop(user)[0]
-                if action_requested == 'PermitAudioRecording':
-                    # self.check_for_signal('CORE_keepAudioPermission', 0)
-                    self.create_signal('CORE_keepAudioPermission')
-                    self.speak_dialog("EnableAudioRecording", {"enable": "enabled"}, False, private=True)
-                    # self.speak("Audio Recording Enabled.", False, private=True)
-                elif action_requested == "DenyAudioRecording":
-                    self.check_for_signal('CORE_keepAudioPermission')
-                    self.speak_dialog("EnableAudioRecording", {"enable": "disabled"}, False, private=True)
-                    # self.speak("Audio Recording Disabled.", False, private=True)
-                elif action_requested == "PermitAudioTranscription":
-                    self.create_signal('CORE_transcribeTextPermission')
-                    self.speak_dialog("EnableTranscription", {"enable": "enabled"}, False, private=True)
-                    # self.speak("Text Transcription Enabled.", False, private=True)
-                elif action_requested == "DenyAudioTranscription":
-                    self.check_for_signal('CORE_transcribeTextPermission')
-                    self.speak_dialog("EnableTranscription", {"enable": "disabled"}, False, private=True)
-                    # self.speak("Audio Transcription Disabled.", False, private=True)
-                elif action_requested == "wwChange":
-                    self.write_ww_change()
-                elif action_requested == "tzChange":
-                    self.change_location(do_tz=True, do_loc=True, message=message)
-                elif action_requested == "locChange":
-                    self.change_location(do_tz=True, do_loc=True, message=message)
-                self.cancel_scheduled_event(f"{user}_{action_requested}")
-                return True
-        return False
+    def _parse_languages(self, utterance: str) -> \
+            (Optional[str], Optional[str]):
+        """
+        Parse a language change request for primary and secondary languages
+        :param utterance: raw utterance spoken by the user
+        :returns: spoken primary, secondary languages requested
+        """
+        def _get_rx_patterns(rx_file: str, utt: str):
+            with open(rx_file) as f:
+                for pat in f.read().splitlines():
+                    pat = pat.strip()
+                    if pat and pat[0] == "#":
+                        continue
+                    res = re.search(pat, utt)
+                    if res:
+                        return res
+        utterance = f"{utterance}\n"
+        primary_tts = self.find_resource('primary_tts.rx', 'regex')
+        secondary_tts = self.find_resource('secondary_tts.rx', 'regex')
+        if primary_tts:
+            try:
+                primary = _get_rx_patterns(primary_tts,
+                                           utterance).group("rx_primary").strip()
+            except (IndexError, AttributeError):
+                primary = None
+        else:
+            LOG.warning("Could not resolve primary_tts.rx")
+            primary = None
+        if secondary_tts:
+            try:
+                secondary = _get_rx_patterns(secondary_tts,
+                                             utterance).group("rx_secondary")\
+                    .strip()
+            except (IndexError, AttributeError):
+                secondary = None
+        else:
+            LOG.warning("Could not resolve secondary_tts.rx")
+            secondary = None
+
+        return primary, secondary
+
+    def _get_lang_code_and_name(self, request: str) -> (str, str):
+        """
+        Extract the lang code and pronounceable name from a requested language
+        :param request: user requested language
+        :returns: lang code and pronounceable language name if found, else None
+        """
+        load_language(self.lang)
+        short_code = extract_langcode(request)[0]
+        code = get_full_lang_code(short_code)
+        if code.split('-')[0] != short_code:
+            LOG.warning(f"Got {code} from {short_code}. No valid code")
+            code = None
+        # TODO: https://github.com/OpenVoiceOS/ovos-lingua-franca/issues/24
+        #  Patching known languages, drop this when #24 resolved
+        request_overrides = {
+            "australian": "en-au",
+            "british": "en-uk",
+            "mexican": "es-mx",
+            "ukrainian": "uk-ua",
+            "japanese": "ja-jp"
+        }
+        for lang, c in request_overrides.items():
+            if lang in request.lower().split():
+                code = c
+                break
+
+        if not code:
+            raise UnsupportedLanguageError(f"No language found in {request}")
+        spoken_lang = pronounce_lang(code)
+        return code, spoken_lang
+
+    def _get_gender(self, request: str) -> Optional[str]:
+        """
+        Extract a requested voice gender
+        :param request: Parsed user requested language
+        :returns: 'male', 'female', or None
+        """
+        if self.voc_match(request, "male"):
+            return "male"
+        if self.voc_match(request, "female"):
+            return "female"
+        LOG.info(f"no gender in request: {request}")
+        return None
+
+    @staticmethod
+    def _get_name_parts(name: str, user_profile: dict) -> dict:
+        """
+        Parse a name string into first/middle/last components
+        :param user_profile: user preferences dict with keys:
+            ('first_name', 'middle_name', 'last_name')
+        :returns: dict of positional names extracted
+        """
+        name_parts = name.split()
+        if len(name_parts) == 1:
+            name = {"first_name": name}
+        elif len(name_parts) == 2:
+            name = {"first_name": name_parts[0],
+                    "last_name": name_parts[1]}
+        elif len(name_parts) == 3:
+            name = {"first_name": name_parts[0],
+                    "middle_name": name_parts[1],
+                    "last_name": name_parts[2]}
+        else:
+            LOG.warning(f"Longer name than expected: {name}")
+            name = {"first_name": name_parts[0],
+                    "middle_name": name_parts[1],
+                    "last_name": " ".join(name_parts[2:])}
+        name_parts = (name.get(n) or user_profile.get(n)
+                      for n in ("first_name", "middle_name", "last_name"))
+        name["full_name"] = " ".join((n for n in name_parts if n))
+        return name
+
+    @staticmethod
+    def _get_timezone_from_location(location: dict) -> \
+            Optional[Tuple[str, float]]:
+        """
+        Get timezone info for the resolved location
+        :param location: location data to get timezone for
+        :returns: Timezone name, UTC Offset
+        """
+        try:
+            tz_name, tz_offset = get_timezone(location["lat"], location["lon"])
+            return tz_name, tz_offset
+        except (KeyError, TypeError):
+            return None
+
+    @staticmethod
+    def _get_location_from_spoken_location(location: str,
+                                           lang: Optional[str] = None) -> \
+            Optional[dict]:
+        """
+        Get address information for the requested location
+        :param location: spoken location to get data for
+        :returns: dict of location data containing at minimum:
+            'lat', 'lon', 'address'['city'], address['country']
+        """
+        from neon_utils.location_utils import get_full_location
+        try:
+            place = get_full_location(location, lang)
+            if not place or not place.get("address"):
+                LOG.warning(f"Could not locate: {location}")
+                return None
+            if not place['address'].get("city") and \
+                    place['address'].get("town"):
+                place["address"]["city"] = place["address"]["town"]
+        except AttributeError:
+            LOG.warning(f"Could not locate: {location}")
+            return None
+        return place
 
     def stop(self):
-        self.clear_signals("USC")
-
-    def handle_gesture(self, message):
-        LOG.debug(message.data)
-        kind = message.data["kind"]
-        payload = None
-        if kind == "clap":
-            n = message.data["count"]
-            LOG.info(f"Got {n} claps!")
-            try:
-                if self.check_for_signal('CLAP_audio', -1):
-                    options = self.preference_skill(message)['audio_claps']
-                elif self.check_for_signal('CLAP_home', -1):
-                    options = self.preference_skill(message)['home_claps']
-                # elif self.check_for_signal('CLAP_cc', -1):
-                #     options = self.preference_skill(message)['clap_sets']['cc']
-                else:
-                    options = self.preference_skill(message)['default_claps']
-                LOG.info(str(options))
-                LOG.info(str(options[n]))
-                # self.emit_action(str(options[n]))
-                payload = {
-                    "utterances": [str(options[n])],
-                    # "flac_filename": kind,
-                    "mobile": False,
-                    "client": "local",
-                    "cc_data": {},
-                    "nick_profiles": {}
-                }
-                # self.bus.emit(Message("recognizer_loop:utterance", payload))
-            except Exception as x:
-                LOG.info(str(x) + "- No clap command option")
-        elif kind == "blink":
-            n = message.data["count"]
-            LOG.info(f"Got {n} blinks!")
-            try:
-                if self.check_for_signal('BLINK_audio'):
-                    options = self.preference_skill(message)['audio_blinks']
-                elif self.check_for_signal('BLINK_home'):
-                    options = self.preference_skill(message)['home_blinks']
-                # elif self.check_for_signal('BLINK_cc', -1):
-                #     options = self.preference_skill(message)['blink_sets']['cc']
-                else:
-                    options = self.preference_skill(message)['default_blinks']
-                LOG.info(str(options))
-                LOG.info(str(options[n]))
-                # self.emit_action(str(options[n]))
-                payload = {
-                    "utterances": [str(options[n])],
-                    # "flac_filename": kind,
-                    "mobile": False,
-                    "client": "local",
-                    "cc_data": {}
-                }
-            except Exception as x:
-                LOG.info(str(x) + "- No blink command option")
-        elif kind == "face_detection":
-            LOG.info(">>>Face Detection")
-            payload = {
-                'utterance': "look",
-                'session': "vision_event"
-            }
-            self.bus.emit(Message('recognizer_loop:wakeword', payload))
-        if payload['utterances'][0]:
-            self.bus.emit(Message("recognizer_loop:utterance", payload))
+        pass
 
 
 def create_skill():
-    return ControlsSkill()
-
-
-# @intent_handler(IntentBuilder("StartBlinker").one_of("Permit", "Deny").require("Blink").
-#                 require("Settings").optionally("OnStartup").build())
-# def handle_blinker_start(self, message):
-#     self.user_config.check_for_updates()
-#     if ("change" or "set") in message.data.get('utterance'):
-#         self.handle_change_clap_blink_set(message)
-#         return
-#
-#     if message.data.get("OnStartup"):
-#         LOG.info("USC - Changing default blinker value")
-#         self.user_config._update_yaml_file("interface", "blink_commands_enabled", True) \
-#             if message.data.get("Permit") and not message.data.get("Deny") else \
-#             self.user_config._update_yaml_file("interface", "blink_commands_enabled", False)
-#         self.speak("Changing the blinker settings to your preference", private=True)
-#     else:
-#         self.create_signal("BLINK_active") if message.data.get("Permit") and not \
-#             message.data.get("Deny") else self.check_for_signal("BLINK_active")
-#         self.speak("Blinker is active", private=True) if self.check_for_signal("BLINK_active", -1) else \
-#             self.speak("Blinker is inactive", private=True)
-
-# @intent_handler(IntentBuilder("DenyTranscription").require("Deny").require("Transcription3").
-#                 require("Transcription2").build())
-# def handle_deny_transcription(self, message):
-#     options = message.data.get("Transcription3")
-#
-#     self.speak("Should I stop audio transcription?", True, private=True) if options == "audio" \
-#         else self.speak("Should I stop text transcription?", True, private=True)
-#     self.create_signal('DenyAudioTranscription') if options == "text" else
-#     self.create_signal("DenyAudioRecording")
-#     self.handle_wait()
-#
-#     self.create_signal('WaitingToConfirm')
-
-# @intent_handler(IntentBuilder("USC_ConfirmYes").require("ConfirmYes").build())
-# def handle_confirm_yes(self, message):
-#     self.user_config.check_for_updates()
-#     LOG.info(message)
-#     if self.check_for_signal('CORE_useHesitation', -1):
-#         self.speak("Sounds good.", private=True)
-#
-#     if self.check_for_signal('PermitAudioRecording', 0):
-#         self.check_for_signal('CORE_keepAudioPermission', 0)
-#         self.create_signal('CORE_keepAudioPermission')
-#         self.speak("Audio Recording Enabled.", False, private=True)
-#
-#     elif self.check_for_signal("DenyAudioRecording", 0):
-#         self.check_for_signal('CORE_keepAudioPermission', 0)
-#         self.speak("Audio Recording Disabled.", False, private=True)
-#
-#     elif self.check_for_signal('PermitAudioTranscription', 0):
-#         self.check_for_signal('CORE_transcribeTextPermission', 0)
-#         self.create_signal('CORE_transcribeTextPermission')
-#         self.speak("Audio Transcription Enabled.", False, private=True)
-#
-#     elif self.check_for_signal("DenyAudioTranscription", 0):
-#         self.check_for_signal('CORE_transcribeTextPermission', 0)
-#         self.speak("Audio Transcription Disabled.", False, private=True)
-#
-#     elif self.check_for_signal("USC_wwChange"):
-#         self.write_ww_change()
-#
-#     elif self.check_for_signal("USC_tzChange"):
-#         self.change_location(do_tz=True, do_loc=True, message=message)
-#
-#     elif self.check_for_signal("USC_locChange"):
-#         self.change_location(do_tz=True, do_loc=True, message=message)
-#
-#     self.check_for_signal('WaitingToConfirm')
-#     self.disable_intent('USC_ConfirmYes')
-#     self.disable_intent('USC_ConfirmNo')
-#
-# @intent_handler(IntentBuilder("USC_ConfirmNo").require("ConfirmNo").build())
-# def handle_confirm_no(self, message):
-#     self.user_config.check_for_updates()
-#     LOG.info(message)
-#     if self.check_for_signal('CORE_useHesitation', -1):
-#         self.speak("Okay.", private=True)
-#
-#     if self.check_for_signal("USC_wwChange"):
-#         self.speak("Please try again or type my new name in the field", private=True)
-#         try:
-#             parent = tk.Tk()
-#             parent.withdraw()
-#             self.new_ww = dialog_box.askstring("Wake Words", "Please enter your desired wake words:")
-#             parent.quit()
-#             LOG.info(self.new_ww)
-#         except Exception as e:
-#             LOG.info(e)
-#         if self.new_ww:
-#             self.write_ww_change()
-#         else:
-#             self.speak("I did not receive any parameters. Please, try again.", private=True)
-#
-#         self.new_ww = ""
-#
-#     elif self.check_for_signal("USC_tzChange"):
-#         self.change_location(do_tz=True, do_loc=False, message=message)
-#
-#     elif self.check_for_signal("USC_locChange"):
-#         self.change_location(do_tz=False, do_loc=True, message=message)
-#     else:
-#         self.speak("Okay. Not doing anything.", False, private=True)
-#
-#     self.disable_intent('USC_ConfirmYes')
-#     self.disable_intent('USC_ConfirmNo')
-#     self.clear_wait()
-
-# def handle_wait(self):
-#     self.enable_intent('USC_ConfirmYes')
-#     self.enable_intent('USC_ConfirmNo')
-#     self.request_check_timeout(30, "USC_ConfirmYes")
-#     self.request_check_timeout(30, "USC_ConfirmNo")
-#     self.clear_wait()
-
-# def clear_wait(self, pass_signal=None):
-#     if self.check_for_signal("WaitingToConfirm") or pass_signal:
-#         self.check_for_signal("WaitingToConfirm")
-#         self.check_for_signal('PermitAudioRecording', 0)
-#         self.check_for_signal("DenyAudioRecording", 0)
-#         self.check_for_signal('PermitAudioTranscription', 0)
-#         self.check_for_signal("DenyAudioTranscription", 0)
-#         self.clear_signals("USC")
-#         # self.check_for_signal("USC_wwChange")
-
-# @intent_handler(IntentBuilder("MuteMic").require("MuteMic").optionally("time").optionally("Neon").build())
-# def handle_mute_request(self, message):
-#     LOG.info(message.data)
-#     timeout_in_seconds = message.data.get('time')
-#     LOG.info(timeout_in_seconds)
+    return UserSettingsSkill()

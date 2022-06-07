@@ -1,0 +1,1 @@
+(primary|first|main).*?\b language to (?P<rx_primary>.*?(?=(and|\n))).*

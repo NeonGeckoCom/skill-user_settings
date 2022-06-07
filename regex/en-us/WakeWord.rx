@@ -1,1 +1,0 @@
-(change|switch|update|set) (my|my system) (wake word|ww|wake words|wakeword) to (?P<wakeword>.*)
