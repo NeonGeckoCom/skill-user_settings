@@ -12,13 +12,27 @@ Neon can help you control your user preference settings via this skill.
 
 You can use this skill in multiple ways: 
 * change my units to (metric/imperial)
-* (enable/disable) clap commands 
-* talk to me (faster/slower/normally) 
-* (enable/disable) (audio recording/transcriptions) 
-* change my location to (Seattle)
-* my name is (Daniel)
-* i will speak to you in (English)
-* speak to me in (Polish)
+* change my time format to (half/military) time
+* (enable/disable) hesitation
+* (enable/disable) (audio recording/transcriptions)
+* talk to me (faster/slower/normally)
+* change my location to...
+* change my timezone to...
+* change my dialog mode to (limited/random)
+* tell me my name
+* tell me my (first/middle/last/preferred/user) name
+* tell me my email address
+* where am i
+* my birthday is...
+* my email address is...
+* my name is...
+* change my (first/middle/last/preferred) name to
+* tell me my language settings
+* i will speak to you in...
+* speak to me in...
+* change my (primary/secondary) language to...
+* no secondary language
+
 
 ## Contact Support
 
@@ -28,6 +42,10 @@ Use the [link](https://neongecko.com/ContactUs) or [submit an issue on GitHub](h
 [NeonDaniel](https://github.com/NeonDaniel)
 [reginaneon](https://github.com/reginaneon)
 [NeonGeckoCom](https://github.com/NeonGeckoCom)
+
+## Category
+**Configuration**
+Daily
 
 ## Tags
 #NeonGecko Original
