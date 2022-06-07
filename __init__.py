@@ -848,12 +848,15 @@ class UserSettingsSkill(NeonSkill):
         from neon_utils.location_utils import get_full_location
         try:
             place = get_full_location(location, lang)
+            if not place or not place.get("address"):
+                LOG.warning(f"Could not locate: {location}")
+                return None
             if not place['address'].get("city") and \
                     place['address'].get("town"):
                 place["address"]["city"] = place["address"]["town"]
         except AttributeError:
             LOG.warning(f"Could not locate: {location}")
-            place = None
+            return None
         return place
 
     def stop(self):
