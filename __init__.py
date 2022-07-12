@@ -374,7 +374,8 @@ class UserSettingsSkill(NeonSkill):
             return
         load_language(self.lang)
 
-        user_tz = gettz(self.preference_location(message)['tz']) or self.sys_tz
+        user_tz = gettz(get_user_prefs(message)['location']['tz']) or \
+            self.sys_tz
         now_time = datetime.now(user_tz)
         try:
             birth_date, _ = extract_datetime(message.data.get("utterance"),
@@ -409,10 +410,8 @@ class UserSettingsSkill(NeonSkill):
         extracted = message.data.get("rx_setting")
         email_addr: str = extracted.split()[0] + \
             message.data.get("utterance").rsplit(extracted.split()[0])[1]
-        dot = read_vocab_file(self.find_resource("dot" + '.voc', 'vocab',
-                                                 lang=self.lang))[0][0]
-        at = read_vocab_file(self.find_resource("at" + '.voc', 'vocab',
-                                                lang=self.lang))[0][0]
+        dot = read_vocab_file(self.find_resource("dot.voc", 'vocab'))[0][0]
+        at = read_vocab_file(self.find_resource("at.voc", 'vocab'))[0][0]
         email_words = email_addr.split()
         if dot in email_words:
             email_words[email_words.index(dot)] = "."

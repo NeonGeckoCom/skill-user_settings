@@ -37,10 +37,9 @@ from typing import Optional
 from dateutil.tz import gettz
 from mock import Mock
 from mock.mock import call
+from neon_utils.user_utils import get_user_prefs
 from ovos_utils.messagebus import FakeBus
 from mycroft_bus_client import Message
-from neon_utils.configuration_utils import get_neon_local_config,\
-    get_neon_user_config
 
 from mycroft.skills.skill_loader import SkillLoader
 
@@ -63,8 +62,6 @@ class TestSkill(unittest.TestCase):
         cls.skill = skill_loader.instance
 
         # Override the configuration and fs paths to use the test directory
-        cls.skill._local_config = get_neon_local_config(cls.test_fs)
-        cls.skill._user_config = get_neon_user_config(cls.test_fs)
         cls.skill.settings_write_path = cls.test_fs
         cls.skill.file_system.path = cls.test_fs
         cls.skill._init_settings()
@@ -81,7 +78,6 @@ class TestSkill(unittest.TestCase):
     def setUp(self):
         self.skill.speak.reset_mock()
         self.skill.speak_dialog.reset_mock()
-        self.user_config = deepcopy(self.skill.user_config.content)
 
     def test_00_skill_init(self):
         # Test any parameters expected to be set in init or initialize methods
@@ -90,7 +86,7 @@ class TestSkill(unittest.TestCase):
         self.assertIsInstance(self.skill, NeonSkill)
 
     def test_handle_unit_change(self):
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_profile["units"]["measure"] = "imperial"
         test_message = Message("test", {"imperial": "imperial"},
@@ -132,7 +128,7 @@ class TestSkill(unittest.TestCase):
             "imperial")
 
     def test_handle_time_format_change(self):
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_profile["units"]["time"] = 12
         test_message = Message("test", {"half": "12 hour"},
@@ -169,7 +165,7 @@ class TestSkill(unittest.TestCase):
             test_message.context["user_profiles"][0]["units"]["time"], 12)
 
     def test_handle_speech_hesitation(self):
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_profile["response_mode"]["hesitation"] = True
         test_message = Message("test", {"permit": "enable"},
@@ -203,7 +199,7 @@ class TestSkill(unittest.TestCase):
                         ["response_mode"]["hesitation"])
 
     def test_handle_transcription_retention(self):
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_profile["privacy"]["save_audio"] = True
         test_profile["privacy"]["save_text"] = True
@@ -283,7 +279,7 @@ class TestSkill(unittest.TestCase):
                         ["privacy"]["save_text"])
 
     def test_handle_speak_speed(self):
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {"faster": "faster"},
                                {"username": "test_user",
@@ -335,7 +331,7 @@ class TestSkill(unittest.TestCase):
         real_ask_yesno = self.skill.ask_yesno
         self.skill.ask_yesno = Mock(return_value="no")
 
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_message: Optional[Message] = None
 
@@ -440,7 +436,7 @@ class TestSkill(unittest.TestCase):
         self.skill.ask_yesno = real_ask_yesno
 
     def test_handle_change_dialog_option(self):
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {"limited": "limited"},
                                {"username": "test_user",
@@ -478,7 +474,7 @@ class TestSkill(unittest.TestCase):
                                                    private=True)
 
     def test_handle_say_my_name(self):
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_message = Message("test", {},
                                {"username": "test_user",
                                 "user_profiles": [test_profile]})
@@ -574,7 +570,7 @@ class TestSkill(unittest.TestCase):
                         "name": "test_user"}, private=True)
 
     def test_handle_say_my_email(self):
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {},
                                {"username": "test_user",
@@ -591,7 +587,7 @@ class TestSkill(unittest.TestCase):
                                                    private=True)
 
     def test_handle_say_my_location(self):
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {},
                                {"username": "test_user",
@@ -609,7 +605,7 @@ class TestSkill(unittest.TestCase):
             "location_is", {"location": "Kyiv, Ukraine"}, private=True)
 
     def test_handle_set_my_birthday(self):
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {"utterance": "my birthday is today"},
                                {"username": "test_user",
@@ -631,7 +627,7 @@ class TestSkill(unittest.TestCase):
     def test_handle_set_my_email(self):
         real_ask_yesno = self.skill.ask_yesno
         self.skill.ask_yesno = Mock(return_value="no")
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {},
                                {"username": "test_user",
@@ -714,7 +710,7 @@ class TestSkill(unittest.TestCase):
         self.skill.ask_yesno = real_ask_yesno
 
     def test_handle_set_my_name(self):
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {},
                                {"username": "test_user",
@@ -830,7 +826,7 @@ class TestSkill(unittest.TestCase):
                          ["user"]["preferred_name"], "Dan")
 
     def test_handle_say_my_language_settings(self):
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_profile["speech"]["tts_language"] = "en-us"
         test_profile["speech"]["tts_gender"] = "female"
@@ -887,7 +883,7 @@ class TestSkill(unittest.TestCase):
 
     def test_handle_set_stt_language(self):
         real_ask_yesno = self.skill.ask_yesno
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_profile["speech"]["stt_language"] = "en-us"
         test_message = Message("test", {"rx_language": "something"},
@@ -935,7 +931,7 @@ class TestSkill(unittest.TestCase):
         self.skill.ask_yesno = real_ask_yesno
 
     def test_handle_set_tts_language(self):
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {},
                                {"username": "test_user",
@@ -1071,7 +1067,7 @@ class TestSkill(unittest.TestCase):
 
         # Unspecified STT not changed
         self.skill.handle_set_stt_language.reset_mock()
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_profile["speech"]["stt_language"] = "en-us"
         test_message = Message("test", {"Language": "American English"},
@@ -1085,7 +1081,7 @@ class TestSkill(unittest.TestCase):
         self.skill.handle_set_tts_language = real_set_tts_language
 
     def test_handle_no_secondary_language(self):
-        test_profile = self.user_config
+        test_profile = get_user_prefs()
         test_profile["user"]["username"] = "test_user"
         test_profile["speech"]["secondary_tts_language"] = "es-es"
         test_message = Message("test", {},
@@ -1106,7 +1102,7 @@ class TestSkill(unittest.TestCase):
         self.assertEqual(test_message.context["user_profiles"][0], profile)
 
     def test_get_name_parts(self):
-        user_profile = self.user_config
+        user_profile = get_user_prefs()
         # First none existing
         name = self.skill._get_name_parts("first", user_profile["user"])
         self.assertEqual(name, {"first_name": "first",
