@@ -477,7 +477,12 @@ class TestSkill(unittest.TestCase):
                                                    private=True)
 
     def test_handle_say_my_name(self):
+        import neon_utils.user_utils
         test_profile = self.user_config
+        test_profile['user']['first_name'] = \
+            test_profile['user']['preferred_name'] = \
+            test_profile['user']['username'] = ''
+        neon_utils.user_utils._DEFAULT_USER_CONFIG = test_profile
         test_message = Message("test", {},
                                {"username": "test_user",
                                 "user_profiles": [test_profile]})
