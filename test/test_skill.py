@@ -477,12 +477,7 @@ class TestSkill(unittest.TestCase):
                                                    private=True)
 
     def test_handle_say_my_name(self):
-        import neon_utils.user_utils
         test_profile = self.user_config
-        test_profile['user']['first_name'] = \
-            test_profile['user']['preferred_name'] = \
-            test_profile['user']['username'] = ''
-        neon_utils.user_utils._DEFAULT_USER_CONFIG = test_profile
         test_message = Message("test", {},
                                {"username": "test_user",
                                 "user_profiles": [test_profile]})
@@ -719,13 +714,7 @@ class TestSkill(unittest.TestCase):
 
     def test_handle_set_my_name(self):
         test_profile = self.user_config
-        test_profile['user'] = {"first_name": "",
-                                "middle_name": "",
-                                "last_name": "",
-                                "preferred_name": "",
-                                "full_name": "",
-                                "username": "test_user"
-                                }
+        test_profile['user']["username"] = "test_user"
         test_message = Message("test", {},
                                {"username": "test_user",
                                 "user_profiles": [test_profile]})
@@ -1116,7 +1105,7 @@ class TestSkill(unittest.TestCase):
         self.assertEqual(test_message.context["user_profiles"][0], profile)
 
     def test_get_name_parts(self):
-        user_profile = get_user_prefs()
+        user_profile = self.user_config
         # First none existing
         name = self.skill._get_name_parts("first", user_profile["user"])
         self.assertEqual(name, {"first_name": "first",
