@@ -579,12 +579,16 @@ class TestSkill(unittest.TestCase):
                                {"username": "test_user",
                                 "user_profiles": [test_profile]})
         self.assertFalse(test_profile["user"]["email"])
+        self.assertEqual(test_message.context['user_profiles'][0]
+                         ["user"]["username"], "test_user")
         self.skill.handle_say_my_email(test_message)
         self.skill.speak_dialog.assert_called_with("email_not_known",
                                                    private=True)
         test_message.context["user_profiles"][0]["user"]["email"] = \
             "test@neon.ai"
         self.skill.handle_say_my_email(test_message)
+        self.assertEqual(test_message.context['user_profiles'][0]
+                         ["user"]["username"], "test_user")
         self.skill.speak_dialog.assert_called_with("email_is",
                                                    {"email": "test@neon.ai"},
                                                    private=True)
