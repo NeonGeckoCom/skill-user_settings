@@ -25,11 +25,12 @@
 # LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import os
 import shutil
 import unittest
-from copy import deepcopy
 
+from copy import deepcopy
 from datetime import datetime
 from os import mkdir
 from os.path import dirname, join, exists
@@ -37,16 +38,16 @@ from typing import Optional
 from dateutil.tz import gettz
 from mock import Mock
 from mock.mock import call
+from neon_utils.user_utils import get_user_prefs
 from ovos_utils.messagebus import FakeBus
 from mycroft_bus_client import Message
-from neon_utils.configuration_utils import get_neon_local_config,\
-    get_neon_user_config
 
 from mycroft.skills.skill_loader import SkillLoader
 
 
 class TestSkill(unittest.TestCase):
     test_message = Message("test", {}, {"neon_in_request": True})
+    default_config = deepcopy(get_user_prefs())
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -63,8 +64,6 @@ class TestSkill(unittest.TestCase):
         cls.skill = skill_loader.instance
 
         # Override the configuration and fs paths to use the test directory
-        cls.skill._local_config = get_neon_local_config(cls.test_fs)
-        cls.skill._user_config = get_neon_user_config(cls.test_fs)
         cls.skill.settings_write_path = cls.test_fs
         cls.skill.file_system.path = cls.test_fs
         cls.skill._init_settings()
@@ -81,7 +80,7 @@ class TestSkill(unittest.TestCase):
     def setUp(self):
         self.skill.speak.reset_mock()
         self.skill.speak_dialog.reset_mock()
-        self.user_config = deepcopy(self.skill.user_config.content)
+        self.user_config = deepcopy(self.default_config)
 
     def test_00_skill_init(self):
         # Test any parameters expected to be set in init or initialize methods
@@ -403,8 +402,8 @@ class TestSkill(unittest.TestCase):
                              test_profile["location"][setting])
         self.assertEqual(profile["location"]["city"], "Honolulu")
         self.assertEqual(profile["location"]["state"], "Hawaii")
-        self.assertEqual(profile["location"]["lat"], 21.2890997)
-        self.assertEqual(profile["location"]["lng"], -157.717299)
+        self.assertAlmostEqual(profile["location"]["lat"], 21.2890997, 0)
+        self.assertAlmostEqual(profile["location"]["lng"], -157.717299, 0)
         self.assertEqual(profile["location"]["tz"], "Pacific/Honolulu")
         self.assertEqual(profile["location"]["utc"], -10.0)
 

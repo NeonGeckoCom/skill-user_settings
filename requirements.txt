@@ -1,3 +1,2 @@
 pytz>=2021.3
-ovos-lingua-franca==0.4.5
-neon-utils~=0.17
+neon-utils>=0.17,<2.0.0,!=1.0.0
