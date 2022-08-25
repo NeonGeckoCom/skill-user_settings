@@ -1198,6 +1198,42 @@ class TestSkill(unittest.TestCase):
         self.assertEqual(("en-au", "English"),
                          self.skill._get_lang_code_and_name(
                              "australian english"))
+        self.assertEqual(("fi-fi", "Finnish"),
+                         self.skill._get_lang_code_and_name(
+                             "finnish"))
+        self.assertEqual(("de-de", "German"),
+                         self.skill._get_lang_code_and_name(
+                             "german"))
+        self.assertEqual(("es-es", "Spanish"),
+                         self.skill._get_lang_code_and_name(
+                             "spanish"))
+        self.assertEqual(("pl-pl", "Polish"),
+                         self.skill._get_lang_code_and_name(
+                             "polish"))
+        self.assertEqual(("ro-ro", "Romanian"),
+                         self.skill._get_lang_code_and_name(
+                             "romanian"))
+        self.assertEqual(("hu-hu", "Hungarian"),
+                         self.skill._get_lang_code_and_name(
+                             "hungarian"))
+        self.assertEqual(("bg-bg", "Bulgarian"),
+                         self.skill._get_lang_code_and_name(
+                             "bulgarian"))
+        self.assertEqual(("nl-nl", "Dutch"),
+                         self.skill._get_lang_code_and_name(
+                             "dutch"))
+        self.assertEqual(("sl-si", "Slovenian"),
+                         self.skill._get_lang_code_and_name(
+                             "slovenian"))
+        self.assertEqual(("lv-lv", "Latvian"),
+                         self.skill._get_lang_code_and_name(
+                             "latvian"))
+        self.assertEqual(("ga-ir", "Irish"),
+                         self.skill._get_lang_code_and_name(
+                             "gaelic"))
+        self.assertEqual(("ga-ir", "Irish"),
+                         self.skill._get_lang_code_and_name(
+                             "irish"))
         with self.assertRaises(UnsupportedLanguageError):
             self.skill._get_lang_code_and_name("nothing")
 
