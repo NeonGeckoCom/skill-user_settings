@@ -755,26 +755,24 @@ class UserSettingsSkill(NeonSkill):
         :returns: lang code and pronounceable language name if found, else None
         """
         load_language(self.lang)
-        short_code = extract_langcode(request)[0]
-        code = get_full_lang_code(short_code)
-        if code.split('-')[0] != short_code:
-            LOG.warning(f"Got {code} from {short_code}. No valid code")
-            code = None
-        # TODO: https://github.com/OpenVoiceOS/ovos-lingua-franca/issues/24
-        #  Patching known languages, drop this when #24 resolved
-        request_overrides = {
-            "australian": "en-au",
-            "british": "en-uk",
-            "mexican": "es-mx",
-            "ukrainian": "uk-ua",
-            "japanese": "ja-jp"
-        }
+
+        code = None
+        # Manually specified languages take priority
+        request_overrides = self.translate_namedvalues("languages.value")
         for lang, c in request_overrides.items():
             if lang in request.lower().split():
                 code = c
                 break
+        if not code:
+            # Ask LF to determine the code
+            short_code = extract_langcode(request)[0]
+            code = get_full_lang_code(short_code)
+            if code.split('-')[0] != short_code:
+                LOG.warning(f"Got {code} from {short_code}. No valid code")
+                code = None
 
         if not code:
+            # Request is not a language, raise an exception
             raise UnsupportedLanguageError(f"No language found in {request}")
         spoken_lang = pronounce_lang(code)
         return code, spoken_lang
