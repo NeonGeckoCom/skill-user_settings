@@ -39,6 +39,7 @@ from dateutil.tz import gettz
 from mock import Mock
 from mock.mock import call
 from neon_utils.user_utils import get_user_prefs
+from neon_utils.language_utils import SupportedLanguages
 from ovos_utils.messagebus import FakeBus
 from mycroft_bus_client import Message
 
@@ -87,6 +88,32 @@ class TestSkill(unittest.TestCase):
         from neon_utils.skills.neon_skill import NeonSkill
 
         self.assertIsInstance(self.skill, NeonSkill)
+
+    def test_stt_languages(self):
+        real_languages = self.skill._languages
+        # Languages Specified
+        self.skill._languages = SupportedLanguages({'en', 'es', 'uk'},
+                                                   {}, {'en', 'uk', 'pl'})
+        self.assertEqual(self.skill.stt_languages, {'en', 'uk'})
+
+        # Languages not Specified
+        self.skill._languages = SupportedLanguages({}, {}, {'en', 'uk', 'pl'})
+        self.assertIsNone(self.skill.stt_languages)
+
+        self.skill._languages = real_languages
+
+    def test_tts_languages(self):
+        real_languages = self.skill._languages
+        # Languages Specified
+        self.skill._languages = SupportedLanguages({}, {'en', 'es', 'uk'},
+                                                   {'en', 'uk', 'pl'})
+        self.assertEqual(self.skill.tts_languages, {'en', 'uk'})
+
+        # Languages not Specified
+        self.skill._languages = SupportedLanguages({}, {'en', 'es', 'uk'}, {})
+        self.assertIsNone(self.skill.tts_languages)
+
+        self.skill._languages = real_languages
 
     def test_handle_unit_change(self):
         test_profile = self.user_config
@@ -886,6 +913,7 @@ class TestSkill(unittest.TestCase):
 
     def test_handle_set_stt_language(self):
         real_ask_yesno = self.skill.ask_yesno
+        real_supported_languages = self.skill._languages
         test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_profile["speech"]["stt_language"] = "en-us"
@@ -907,9 +935,20 @@ class TestSkill(unittest.TestCase):
             "language_not_changed", {"io": "speech to text",
                                      "lang": "American English"},
             private=True)
+
+        # Change lang unsupported
+        test_message.data["rx_language"] = "ukrainian"
+        self.skill.handle_set_stt_language(test_message)
+        self.skill.speak_dialog.assert_called_with("language_not_supported",
+                                                   {"io": "understand",
+                                                    "lang": "Ukrainian"},
+                                                   private=True)
+
+        # Mock supported STT langs
+        self.skill._languages = SupportedLanguages({'uk'}, {}, {'uk'})
+
         # Change lang unconfirmed
         self.skill.ask_yesno = Mock(return_value=False)
-        test_message.data["rx_language"] = "ukrainian"
         self.skill.handle_set_stt_language(test_message)
         self.skill.ask_yesno.assert_called_once_with(
             "language_change_confirmation", {"io": "speech to text",
@@ -931,9 +970,19 @@ class TestSkill(unittest.TestCase):
                                                    private=True)
         self.assertEqual(test_message.context["user_profiles"][0]
                          ["speech"]["stt_language"], "uk-ua")
+
         self.skill.ask_yesno = real_ask_yesno
+        self.skill._languages = real_supported_languages
 
     def test_handle_set_tts_language(self):
+        real_supported_languages = self.skill._languages
+        self.skill._languages = SupportedLanguages({}, {'it', 'ja', 'de', 'uk',
+                                                        'pl', 'fr', 'es', 'bg',
+                                                        'en'},
+                                                   {'it', 'ja', 'de', 'uk',
+                                                        'pl', 'fr', 'es',
+                                                        'en'})
+
         test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {},
@@ -1042,6 +1091,22 @@ class TestSkill(unittest.TestCase):
                          ["tts_language"], "ja-jp")
         self.assertEqual(test_message.context["user_profiles"][0]["speech"]
                          ["secondary_tts_language"], "it-it")
+
+        # Change TTS language unsupported
+        test_message.data = {"utterance": "Change my text to speech language"
+                                          "to bulgarian",
+                             'rx_language': 'bulgarian'}
+        self.skill.handle_set_tts_language(test_message)
+        self.skill.speak_dialog.assert_called_with("language_not_supported",
+                                                   {'io': 'speak',
+                                                    'lang': 'Bulgarian'},
+                                                   private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["tts_language"], "ja-jp")
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["secondary_tts_language"], "it-it")
+
+        self.skill._languages = real_supported_languages
 
     def test_handle_set_language(self):
         real_set_stt_language = self.skill.handle_set_stt_language

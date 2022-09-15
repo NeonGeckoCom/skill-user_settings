@@ -37,6 +37,7 @@ from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
 from neon_utils.logger import LOG
 from neon_utils.user_utils import get_user_prefs
+from neon_utils.language_utils import get_supported_languages
 from lingua_franca.parse import extract_langcode, get_full_lang_code
 from lingua_franca.format import pronounce_lang
 from lingua_franca.internal import UnsupportedLanguageError
@@ -52,6 +53,35 @@ class UserSettingsSkill(NeonSkill):
 
     def __init__(self):
         super(UserSettingsSkill, self).__init__(name="UserSettingsSkill")
+        self._languages = None
+
+    @property
+    def stt_languages(self) -> Optional[set]:
+        self._get_supported_languages()
+        if not all((self._languages.skills, self._languages.stt)):
+            LOG.warning("Incomplete language support response. "
+                        "Assuming all languages are supported")
+            return None
+        return set((lang for lang in self._languages.stt
+                    if lang in self._languages.skills))
+
+    @property
+    def tts_languages(self):
+        self._get_supported_languages()
+        if not all((self._languages.skills, self._languages.tts)):
+            LOG.warning("Incomplete language support response. "
+                        "Assuming all languages are supported")
+            return None
+        return set((lang for lang in self._languages.tts
+                    if lang in self._languages.skills))
+
+    def _get_supported_languages(self):
+        """
+        Gather supported languages via the Messagebus API and save the result
+        """
+        if not self._languages:
+            supported_langs = get_supported_languages()
+            self._languages = supported_langs
 
     @intent_handler(IntentBuilder("ChangeUnits").require("change")
                     .require("units").one_of("imperial", "metric").build())
@@ -571,6 +601,13 @@ class UserSettingsSkill(NeonSkill):
             return
 
         LOG.info(f"code={code}")
+        if self.stt_languages and code.split('-')[0] not in self.stt_languages:
+            LOG.warning(f"{code} not found in: {self.stt_languages}")
+            self.speak_dialog("language_not_supported",
+                              {"lang": spoken_lang,
+                               "io": self.translate('word_understand')},
+                              private=True)
+            return
         dialog_data = {"io": self.translate("word_stt"),
                        "lang": spoken_lang}
         if code == get_user_prefs(message)["speech"]["stt_language"]:
@@ -608,6 +645,15 @@ class UserSettingsSkill(NeonSkill):
                 primary_code, primary_spoken = \
                     self._get_lang_code_and_name(primary)
                 LOG.info(f"primary={primary_code}")
+                if self.tts_languages and \
+                        primary_code.split('-')[0] not in self.tts_languages:
+                    LOG.warning(f"{primary_code} not found in:"
+                                f" {self.tts_languages}")
+                    self.speak_dialog("language_not_supported",
+                                      {"lang": primary_spoken,
+                                       "io": self.translate('word_speak')},
+                                      private=True)
+                    return
                 gender = self._get_gender(primary) or \
                     user_settings["speech"]["tts_gender"]
                 self.update_profile({"speech": {"tts_gender": gender,
@@ -625,6 +671,15 @@ class UserSettingsSkill(NeonSkill):
                 secondary_code, secondary_spoken = \
                     self._get_lang_code_and_name(secondary)
                 LOG.info(f"secondary={secondary_code}")
+                if self.tts_languages and \
+                        secondary_code.split('-')[0] not in self.tts_languages:
+                    LOG.warning(f"{secondary_code} not found in:"
+                                f" {self.tts_languages}")
+                    self.speak_dialog("language_not_supported",
+                                      {"lang": secondary_spoken,
+                                       "io": self.translate('word_speak')},
+                                      private=True)
+                    return
                 gender = self._get_gender(secondary) or \
                     user_settings["speech"]["secondary_tts_gender"]
                 self.update_profile(
@@ -645,6 +700,14 @@ class UserSettingsSkill(NeonSkill):
             try:
                 code, spoken = \
                     self._get_lang_code_and_name(language)
+                if self.tts_languages and \
+                        code.split('-')[0] not in self.tts_languages:
+                    LOG.warning(f"{code} not found in: {self.tts_languages}")
+                    self.speak_dialog("language_not_supported",
+                                      {"lang": spoken,
+                                       "io": self.translate('word_speak')},
+                                      private=True)
+                    return
                 gender = self._get_gender(language) or \
                     user_settings["speech"]["tts_gender"]
                 self.update_profile({"speech": {"tts_gender": gender,
