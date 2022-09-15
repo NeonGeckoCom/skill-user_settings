@@ -35,6 +35,8 @@ from datetime import datetime
 from os import mkdir
 from os.path import dirname, join, exists
 from typing import Optional
+
+import mock
 from dateutil.tz import gettz
 from mock import Mock
 from mock.mock import call
@@ -51,7 +53,9 @@ class TestSkill(unittest.TestCase):
     default_config = deepcopy(get_user_prefs())
 
     @classmethod
-    def setUpClass(cls) -> None:
+    @mock.patch('neon_utils.language_utils.get_supported_languages')
+    def setUpClass(cls, get_langs) -> None:
+        get_langs.return_value = SupportedLanguages({'en'}, {'en'}, {'en'})
         # Define a directory to use for testing
         cls.test_fs = join(dirname(__file__), "skill_fs")
         if not exists(cls.test_fs):
