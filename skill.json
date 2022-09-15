@@ -32,7 +32,7 @@
     "systemDeps": false,
     "requirements": {
         "python": [
-            "neon-utils~=1.0,>=1.0.3a5",
+            "neon-utils>=1.0.3a5",
             "pytz>=2021.3"
         ],
         "system": {},
