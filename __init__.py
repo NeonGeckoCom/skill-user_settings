@@ -42,7 +42,7 @@ from lingua_franca.parse import extract_langcode, get_full_lang_code
 from lingua_franca.format import pronounce_lang
 from lingua_franca.internal import UnsupportedLanguageError
 from ovos_utils.file_utils import read_vocab_file
-
+from ovos_utils.network_utils import is_connected
 from mycroft.skills.core import intent_handler, intent_file_handler
 from mycroft.util.parse import extract_datetime
 
@@ -57,10 +57,17 @@ class UserSettingsSkill(NeonSkill):
 
     def initialize(self):
         if self.settings.get('use_geolocation'):
-            LOG.info(f'Requesting Geolocation update')
-            self.bus.once('ovos.ipgeo.update.response',
-                          self._handle_location_ipgeo_update)
-            self.bus.emit(Message('ovos.ipgeo.update', {'overwrite': True}))
+            if is_connected():
+                self._request_location_update()
+            else:
+                self.add_event('mycroft.internet.connected',
+                               self._request_location_update, once=True)
+
+    def _request_location_update(self, _=None):
+        LOG.info(f'Requesting Geolocation update')
+        self.add_event('ovos.ipgeo.update.response',
+                       self._handle_location_ipgeo_update, once=True)
+        self.bus.emit(Message('ovos.ipgeo.update', {'overwrite': True}))
 
     def _handle_location_ipgeo_update(self, message):
         updated_location = message.data.get('location')
