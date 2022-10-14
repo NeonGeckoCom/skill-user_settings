@@ -42,7 +42,7 @@ from lingua_franca.parse import extract_langcode, get_full_lang_code
 from lingua_franca.format import pronounce_lang
 from lingua_franca.internal import UnsupportedLanguageError
 from ovos_utils.file_utils import read_vocab_file
-
+from ovos_utils.network_utils import is_connected
 from mycroft.skills.core import intent_handler, intent_file_handler
 from mycroft.util.parse import extract_datetime
 
@@ -54,6 +54,43 @@ class UserSettingsSkill(NeonSkill):
     def __init__(self):
         super(UserSettingsSkill, self).__init__(name="UserSettingsSkill")
         self._languages = None
+
+    def initialize(self):
+        if self.settings.get('use_geolocation'):
+            # TODO: Better check here
+            if is_connected():
+                LOG.debug('Internet connected, updating location')
+                self._request_location_update()
+            else:
+                self.add_event('ovos.wifi.setup.completed',
+                               self._request_location_update, once=True)
+
+    def _request_location_update(self, _=None):
+        LOG.info(f'Requesting Geolocation update')
+        self.add_event('ovos.ipgeo.update.response',
+                       self._handle_location_ipgeo_update, once=True)
+        self.bus.emit(Message('ovos.ipgeo.update', {'overwrite': True}))
+
+    def _handle_location_ipgeo_update(self, message):
+        updated_location = message.data.get('location')
+        if not updated_location:
+            LOG.warning(f"No geolocation config")
+            return
+        from neon_utils.user_utils import apply_local_user_profile_updates
+        from neon_utils.configuration_utils import get_neon_user_config
+        new_loc = {
+                'lat': str(updated_location['coordinate']['latitude']),
+                'lon': str(updated_location['coordinate']['longitude']),
+                'city': updated_location['city']['name'],
+                'state': updated_location['city']['state']['name'],
+                'country': updated_location['city']['state']['country']['name'],
+            }
+        name, offset = self._get_timezone_from_location(new_loc)
+        new_loc['lng'] = new_loc.pop('lon')
+        new_loc['tz'] = name
+        new_loc['utc'] = str(round(offset, 1))
+        apply_local_user_profile_updates({'location': new_loc},
+                                         get_neon_user_config())
 
     @property
     def stt_languages(self) -> Optional[set]:
