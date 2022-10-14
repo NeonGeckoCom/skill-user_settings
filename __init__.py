@@ -60,7 +60,7 @@ class UserSettingsSkill(NeonSkill):
             LOG.info(f'Requesting Geolocation update')
             self.bus.once('ovos.ipgeo.update.response',
                           self._handle_location_ipgeo_update)
-            self.bus.emit(Message('ovos.ipgeo.update'))
+            self.bus.emit(Message('ovos.ipgeo.update', {'overwrite': True}))
 
     def _handle_location_ipgeo_update(self, message):
         updated_location = message.data.get('location')
