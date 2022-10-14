@@ -55,6 +55,34 @@ class UserSettingsSkill(NeonSkill):
         super(UserSettingsSkill, self).__init__(name="UserSettingsSkill")
         self._languages = None
 
+    def initialize(self):
+        if self.settings.get('use_geolocation'):
+            LOG.info(f'Requesting Geolocation update')
+            self.bus.once('ovos.ipgeo.update.response',
+                          self._handle_location_ipgeo_update)
+            self.bus.emit(Message('ovos.ipgeo.update'))
+
+    def _handle_location_ipgeo_update(self, message):
+        updated_location = message.data.get('location')
+        if not updated_location:
+            LOG.warning(f"No geolocation config")
+            return
+        from neon_utils.user_utils import apply_local_user_profile_updates
+        from neon_utils.configuration_utils import get_neon_user_config
+        new_loc = {
+                'lat': str(updated_location['coordinate']['latitude']),
+                'lon': str(updated_location['coordinate']['longitude']),
+                'city': updated_location['city']['name'],
+                'state': updated_location['city']['state']['name'],
+                'country': updated_location['city']['state']['country']['name'],
+            }
+        name, offset = self._get_timezone_from_location(new_loc)
+        new_loc['lng'] = new_loc.pop('lon')
+        new_loc['tz'] = name
+        new_loc['utc'] = str(round(offset, 1))
+        apply_local_user_profile_updates({'location': new_loc},
+                                         get_neon_user_config())
+
     @property
     def stt_languages(self) -> Optional[set]:
         self._get_supported_languages()
