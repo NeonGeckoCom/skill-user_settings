@@ -57,10 +57,12 @@ class UserSettingsSkill(NeonSkill):
 
     def initialize(self):
         if self.settings.get('use_geolocation'):
+            # TODO: Better check here
             if is_connected():
+                LOG.debug('Internet connected, updating location')
                 self._request_location_update()
             else:
-                self.add_event('mycroft.internet.connected',
+                self.add_event('ovos.wifi.setup.completed',
                                self._request_location_update, once=True)
 
     def _request_location_update(self, _=None):
