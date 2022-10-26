@@ -35,10 +35,13 @@ from datetime import datetime
 from os import mkdir
 from os.path import dirname, join, exists
 from typing import Optional
+
+import mock
 from dateutil.tz import gettz
 from mock import Mock
 from mock.mock import call
 from neon_utils.user_utils import get_user_prefs
+from neon_utils.language_utils import SupportedLanguages
 from ovos_utils.messagebus import FakeBus
 from mycroft_bus_client import Message
 
@@ -50,7 +53,9 @@ class TestSkill(unittest.TestCase):
     default_config = deepcopy(get_user_prefs())
 
     @classmethod
-    def setUpClass(cls) -> None:
+    @mock.patch('neon_utils.language_utils.get_supported_languages')
+    def setUpClass(cls, get_langs) -> None:
+        get_langs.return_value = SupportedLanguages({'en'}, {'en'}, {'en'})
         # Define a directory to use for testing
         cls.test_fs = join(dirname(__file__), "skill_fs")
         if not exists(cls.test_fs):
@@ -87,6 +92,32 @@ class TestSkill(unittest.TestCase):
         from neon_utils.skills.neon_skill import NeonSkill
 
         self.assertIsInstance(self.skill, NeonSkill)
+
+    def test_stt_languages(self):
+        real_languages = self.skill._languages
+        # Languages Specified
+        self.skill._languages = SupportedLanguages({'en', 'es', 'uk'},
+                                                   {}, {'en', 'uk', 'pl'})
+        self.assertEqual(self.skill.stt_languages, {'en', 'uk'})
+
+        # Languages not Specified
+        self.skill._languages = SupportedLanguages({}, {}, {'en', 'uk', 'pl'})
+        self.assertIsNone(self.skill.stt_languages)
+
+        self.skill._languages = real_languages
+
+    def test_tts_languages(self):
+        real_languages = self.skill._languages
+        # Languages Specified
+        self.skill._languages = SupportedLanguages({}, {'en', 'es', 'uk'},
+                                                   {'en', 'uk', 'pl'})
+        self.assertEqual(self.skill.tts_languages, {'en', 'uk'})
+
+        # Languages not Specified
+        self.skill._languages = SupportedLanguages({}, {'en', 'es', 'uk'}, {})
+        self.assertIsNone(self.skill.tts_languages)
+
+        self.skill._languages = real_languages
 
     def test_handle_unit_change(self):
         test_profile = self.user_config
@@ -886,6 +917,7 @@ class TestSkill(unittest.TestCase):
 
     def test_handle_set_stt_language(self):
         real_ask_yesno = self.skill.ask_yesno
+        real_supported_languages = self.skill._languages
         test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_profile["speech"]["stt_language"] = "en-us"
@@ -907,9 +939,20 @@ class TestSkill(unittest.TestCase):
             "language_not_changed", {"io": "speech to text",
                                      "lang": "American English"},
             private=True)
+
+        # Change lang unsupported
+        test_message.data["rx_language"] = "ukrainian"
+        self.skill.handle_set_stt_language(test_message)
+        self.skill.speak_dialog.assert_called_with("language_not_supported",
+                                                   {"io": "understand",
+                                                    "lang": "Ukrainian"},
+                                                   private=True)
+
+        # Mock supported STT langs
+        self.skill._languages = SupportedLanguages({'uk'}, {}, {'uk'})
+
         # Change lang unconfirmed
         self.skill.ask_yesno = Mock(return_value=False)
-        test_message.data["rx_language"] = "ukrainian"
         self.skill.handle_set_stt_language(test_message)
         self.skill.ask_yesno.assert_called_once_with(
             "language_change_confirmation", {"io": "speech to text",
@@ -931,9 +974,19 @@ class TestSkill(unittest.TestCase):
                                                    private=True)
         self.assertEqual(test_message.context["user_profiles"][0]
                          ["speech"]["stt_language"], "uk-ua")
+
         self.skill.ask_yesno = real_ask_yesno
+        self.skill._languages = real_supported_languages
 
     def test_handle_set_tts_language(self):
+        real_supported_languages = self.skill._languages
+        self.skill._languages = SupportedLanguages({}, {'it', 'ja', 'de', 'uk',
+                                                        'pl', 'fr', 'es', 'bg',
+                                                        'en'},
+                                                   {'it', 'ja', 'de', 'uk',
+                                                        'pl', 'fr', 'es',
+                                                        'en'})
+
         test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_message = Message("test", {},
@@ -1042,6 +1095,22 @@ class TestSkill(unittest.TestCase):
                          ["tts_language"], "ja-jp")
         self.assertEqual(test_message.context["user_profiles"][0]["speech"]
                          ["secondary_tts_language"], "it-it")
+
+        # Change TTS language unsupported
+        test_message.data = {"utterance": "Change my text to speech language"
+                                          "to bulgarian",
+                             'rx_language': 'bulgarian'}
+        self.skill.handle_set_tts_language(test_message)
+        self.skill.speak_dialog.assert_called_with("language_not_supported",
+                                                   {'io': 'speak',
+                                                    'lang': 'Bulgarian'},
+                                                   private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["tts_language"], "ja-jp")
+        self.assertEqual(test_message.context["user_profiles"][0]["speech"]
+                         ["secondary_tts_language"], "it-it")
+
+        self.skill._languages = real_supported_languages
 
     def test_handle_set_language(self):
         real_set_stt_language = self.skill.handle_set_stt_language
@@ -1188,16 +1257,85 @@ class TestSkill(unittest.TestCase):
 
     def test_get_lang_name_and_code(self):
         from lingua_franca.internal import UnsupportedLanguageError
-
+        # Check all the Coqui TTS Supported Languages
         self.assertEqual(("en-us", "American English"),
                          self.skill._get_lang_code_and_name("english"))
+        self.assertEqual(("es-es", "Spanish"),
+                         self.skill._get_lang_code_and_name("spanish"))
+        self.assertEqual(("fr-fr", "French"),
+                         self.skill._get_lang_code_and_name("french"))
+        self.assertEqual(("de-de", "German"),
+                         self.skill._get_lang_code_and_name("german"))
+        self.assertEqual(("it-it", "Italian"),
+                         self.skill._get_lang_code_and_name("italian"))
         self.assertEqual(("pl-pl", "Polish"),
                          self.skill._get_lang_code_and_name("polish"))
         self.assertEqual(("uk-ua", "Ukrainian"),
                          self.skill._get_lang_code_and_name("ukrainian"))
+        self.assertEqual(("ro-ro", "Romanian"),
+                         self.skill._get_lang_code_and_name("romanian"))
+        self.assertEqual(("hu-hu", "Hungarian"),
+                         self.skill._get_lang_code_and_name("hungarian"))
+        self.assertEqual(("el-gr", "Greek"),
+                         self.skill._get_lang_code_and_name("greek"))
+        self.assertEqual(("sv-se", "Swedish"),
+                         self.skill._get_lang_code_and_name("swedish"))
+        self.assertEqual(("bg-bg", "Bulgarian"),
+                         self.skill._get_lang_code_and_name("bulgarian"))
+        self.assertEqual(("nl-nl", "Dutch"),
+                         self.skill._get_lang_code_and_name("dutch"))
+        self.assertEqual(("fi-fi", "Finnish"),
+                         self.skill._get_lang_code_and_name("finnish"))
+        self.assertEqual(("sl-si", "Slovenian"),
+                         self.skill._get_lang_code_and_name("slovenian"))
+        self.assertEqual(("lv-lv", "Latvian"),
+                         self.skill._get_lang_code_and_name("latvian"))
+        self.assertEqual(("et-ee", "Estonian"),
+                         self.skill._get_lang_code_and_name("estonian"))
+        self.assertEqual(("ga-ie", "Irish"),
+                         self.skill._get_lang_code_and_name("irish"))
+
+        # Check LibreTranslate supported languages
+        self.assertEqual(("ar-sa", "Arabic"),
+                         self.skill._get_lang_code_and_name("arabic"))
+        self.assertEqual(("az-az", "Azerbaijani"),
+                         self.skill._get_lang_code_and_name("azerbaijani"))
+        self.assertEqual(("zh-zh", "Chinese"),
+                         self.skill._get_lang_code_and_name("chinese"))
+        self.assertEqual(("cs-cz", "Czech"),
+                         self.skill._get_lang_code_and_name("czech"))
+        self.assertEqual(("da-dk", "Danish"),
+                         self.skill._get_lang_code_and_name("danish"))
+        # self.assertEqual(("eo", "Esperanto"),
+        #                  self.skill._get_lang_code_and_name("esperanto"))
+        # self.assertEqual(("he-il", "Hebrew"),
+        #                  self.skill._get_lang_code_and_name("hebrew"))
+        self.assertEqual(("hi-in", "Hindi"),
+                         self.skill._get_lang_code_and_name("hindi"))
+        self.assertEqual(("id-id", "Indonesian"),
+                         self.skill._get_lang_code_and_name("indonesian"))
+        self.assertEqual(("ja-jp", "Japanese"),
+                         self.skill._get_lang_code_and_name("japanese"))
+        self.assertEqual(("ko-kr", "Korean"),
+                         self.skill._get_lang_code_and_name("korean"))
+        self.assertEqual(("fa-ir", "Persian"),
+                         self.skill._get_lang_code_and_name("persian"))
+        self.assertEqual(("pt-pt", "Portuguese"),
+                         self.skill._get_lang_code_and_name("portuguese"))
+        self.assertEqual(("ru-ru", "Russian"),
+                         self.skill._get_lang_code_and_name("russian"))
+        self.assertEqual(("sk-sk", "Slovak"),
+                         self.skill._get_lang_code_and_name("slovak"))
+        self.assertEqual(("tr-tr", "Turkish"),
+                         self.skill._get_lang_code_and_name("turkish"))
+        # Check manually specified alternative language requests
+        self.assertEqual(("ga-ie", "Irish"),
+                         self.skill._get_lang_code_and_name("gaelic"))
         self.assertEqual(("en-au", "English"),
                          self.skill._get_lang_code_and_name(
                              "australian english"))
+        self.assertEqual(("fa-ir", "Persian"),
+                         self.skill._get_lang_code_and_name("farsi"))
         with self.assertRaises(UnsupportedLanguageError):
             self.skill._get_lang_code_and_name("nothing")
 

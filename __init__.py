@@ -37,11 +37,12 @@ from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
 from neon_utils.logger import LOG
 from neon_utils.user_utils import get_user_prefs
+from neon_utils.language_utils import get_supported_languages
 from lingua_franca.parse import extract_langcode, get_full_lang_code
 from lingua_franca.format import pronounce_lang
 from lingua_franca.internal import UnsupportedLanguageError
 from ovos_utils.file_utils import read_vocab_file
-
+from ovos_utils.network_utils import is_connected
 from mycroft.skills.core import intent_handler, intent_file_handler
 from mycroft.util.parse import extract_datetime
 
@@ -52,6 +53,72 @@ class UserSettingsSkill(NeonSkill):
 
     def __init__(self):
         super(UserSettingsSkill, self).__init__(name="UserSettingsSkill")
+        self._languages = None
+
+    def initialize(self):
+        if self.settings.get('use_geolocation'):
+            # TODO: Better check here
+            if is_connected():
+                LOG.debug('Internet connected, updating location')
+                self._request_location_update()
+            else:
+                self.add_event('ovos.wifi.setup.completed',
+                               self._request_location_update, once=True)
+
+    def _request_location_update(self, _=None):
+        LOG.info(f'Requesting Geolocation update')
+        self.add_event('ovos.ipgeo.update.response',
+                       self._handle_location_ipgeo_update, once=True)
+        self.bus.emit(Message('ovos.ipgeo.update', {'overwrite': True}))
+
+    def _handle_location_ipgeo_update(self, message):
+        updated_location = message.data.get('location')
+        if not updated_location:
+            LOG.warning(f"No geolocation config")
+            return
+        from neon_utils.user_utils import apply_local_user_profile_updates
+        from neon_utils.configuration_utils import get_neon_user_config
+        new_loc = {
+                'lat': str(updated_location['coordinate']['latitude']),
+                'lon': str(updated_location['coordinate']['longitude']),
+                'city': updated_location['city']['name'],
+                'state': updated_location['city']['state']['name'],
+                'country': updated_location['city']['state']['country']['name'],
+            }
+        name, offset = self._get_timezone_from_location(new_loc)
+        new_loc['lng'] = new_loc.pop('lon')
+        new_loc['tz'] = name
+        new_loc['utc'] = str(round(offset, 1))
+        apply_local_user_profile_updates({'location': new_loc},
+                                         get_neon_user_config())
+
+    @property
+    def stt_languages(self) -> Optional[set]:
+        self._get_supported_languages()
+        if not all((self._languages.skills, self._languages.stt)):
+            LOG.warning("Incomplete language support response. "
+                        "Assuming all languages are supported")
+            return None
+        return set((lang for lang in self._languages.stt
+                    if lang in self._languages.skills))
+
+    @property
+    def tts_languages(self):
+        self._get_supported_languages()
+        if not all((self._languages.skills, self._languages.tts)):
+            LOG.warning("Incomplete language support response. "
+                        "Assuming all languages are supported")
+            return None
+        return set((lang for lang in self._languages.tts
+                    if lang in self._languages.skills))
+
+    def _get_supported_languages(self):
+        """
+        Gather supported languages via the Messagebus API and save the result
+        """
+        if not self._languages:
+            supported_langs = get_supported_languages()
+            self._languages = supported_langs
 
     @intent_handler(IntentBuilder("ChangeUnits").require("change")
                     .require("units").one_of("imperial", "metric").build())
@@ -318,7 +385,7 @@ class UserSettingsSkill(NeonSkill):
                    profile["user"]["username"]
             request = "word_name"
 
-        if not name:
+        if not name or name == profile["user"]["username"] == 'local':
             # TODO: Use get_response to ask for the user's name
             self.speak_dialog("name_not_known",
                               {"name_position": self.translate(request)},
@@ -571,6 +638,13 @@ class UserSettingsSkill(NeonSkill):
             return
 
         LOG.info(f"code={code}")
+        if self.stt_languages and code.split('-')[0] not in self.stt_languages:
+            LOG.warning(f"{code} not found in: {self.stt_languages}")
+            self.speak_dialog("language_not_supported",
+                              {"lang": spoken_lang,
+                               "io": self.translate('word_understand')},
+                              private=True)
+            return
         dialog_data = {"io": self.translate("word_stt"),
                        "lang": spoken_lang}
         if code == get_user_prefs(message)["speech"]["stt_language"]:
@@ -608,6 +682,15 @@ class UserSettingsSkill(NeonSkill):
                 primary_code, primary_spoken = \
                     self._get_lang_code_and_name(primary)
                 LOG.info(f"primary={primary_code}")
+                if self.tts_languages and \
+                        primary_code.split('-')[0] not in self.tts_languages:
+                    LOG.warning(f"{primary_code} not found in:"
+                                f" {self.tts_languages}")
+                    self.speak_dialog("language_not_supported",
+                                      {"lang": primary_spoken,
+                                       "io": self.translate('word_speak')},
+                                      private=True)
+                    return
                 gender = self._get_gender(primary) or \
                     user_settings["speech"]["tts_gender"]
                 self.update_profile({"speech": {"tts_gender": gender,
@@ -625,6 +708,15 @@ class UserSettingsSkill(NeonSkill):
                 secondary_code, secondary_spoken = \
                     self._get_lang_code_and_name(secondary)
                 LOG.info(f"secondary={secondary_code}")
+                if self.tts_languages and \
+                        secondary_code.split('-')[0] not in self.tts_languages:
+                    LOG.warning(f"{secondary_code} not found in:"
+                                f" {self.tts_languages}")
+                    self.speak_dialog("language_not_supported",
+                                      {"lang": secondary_spoken,
+                                       "io": self.translate('word_speak')},
+                                      private=True)
+                    return
                 gender = self._get_gender(secondary) or \
                     user_settings["speech"]["secondary_tts_gender"]
                 self.update_profile(
@@ -645,6 +737,14 @@ class UserSettingsSkill(NeonSkill):
             try:
                 code, spoken = \
                     self._get_lang_code_and_name(language)
+                if self.tts_languages and \
+                        code.split('-')[0] not in self.tts_languages:
+                    LOG.warning(f"{code} not found in: {self.tts_languages}")
+                    self.speak_dialog("language_not_supported",
+                                      {"lang": spoken,
+                                       "io": self.translate('word_speak')},
+                                      private=True)
+                    return
                 gender = self._get_gender(language) or \
                     user_settings["speech"]["tts_gender"]
                 self.update_profile({"speech": {"tts_gender": gender,
@@ -755,26 +855,24 @@ class UserSettingsSkill(NeonSkill):
         :returns: lang code and pronounceable language name if found, else None
         """
         load_language(self.lang)
-        short_code = extract_langcode(request)[0]
-        code = get_full_lang_code(short_code)
-        if code.split('-')[0] != short_code:
-            LOG.warning(f"Got {code} from {short_code}. No valid code")
-            code = None
-        # TODO: https://github.com/OpenVoiceOS/ovos-lingua-franca/issues/24
-        #  Patching known languages, drop this when #24 resolved
-        request_overrides = {
-            "australian": "en-au",
-            "british": "en-uk",
-            "mexican": "es-mx",
-            "ukrainian": "uk-ua",
-            "japanese": "ja-jp"
-        }
+
+        code = None
+        # Manually specified languages take priority
+        request_overrides = self.translate_namedvalues("languages.value")
         for lang, c in request_overrides.items():
             if lang in request.lower().split():
                 code = c
                 break
+        if not code:
+            # Ask LF to determine the code
+            short_code = extract_langcode(request)[0]
+            code = get_full_lang_code(short_code)
+            if code.split('-')[0] != short_code:
+                LOG.warning(f"Got {code} from {short_code}. No valid code")
+                code = None
 
         if not code:
+            # Request is not a language, raise an exception
             raise UnsupportedLanguageError(f"No language found in {request}")
         spoken_lang = pronounce_lang(code)
         return code, spoken_lang
