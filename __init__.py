@@ -385,7 +385,7 @@ class UserSettingsSkill(NeonSkill):
                    profile["user"]["username"]
             request = "word_name"
 
-        if not name:
+        if not name or name == profile["user"]["username"] == 'local':
             # TODO: Use get_response to ask for the user's name
             self.speak_dialog("name_not_known",
                               {"name_position": self.translate(request)},
