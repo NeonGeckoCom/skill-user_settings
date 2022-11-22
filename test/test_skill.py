@@ -620,16 +620,40 @@ class TestSkill(unittest.TestCase):
                                                    {"email": "test@neon.ai"},
                                                    private=True)
 
-    def test_handle_say_my_location(self):
+    @mock.patch('neon_utils.net_utils.check_online')
+    def test_handle_say_my_location(self, check_online):
         test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
+        test_profile['location'] = {'lat': '',
+                                    'lng': '',
+                                    'city': '',
+                                    'state': '',
+                                    'country': ''}
         test_message = Message("test", {},
                                {"username": "test_user",
                                 "user_profiles": [test_profile]})
+
+        # No location, offline
+        check_online.return_value = False
+        self.skill.handle_say_my_location(test_message)
+        self.skill.speak_dialog.assert_called_with("location_unknown_offline",
+                                                   private=True)
+        # No location, online
+        check_online.return_value = True
+        self.skill.handle_say_my_location(test_message)
+        self.skill.speak_dialog.assert_called_with("location_unknown_online",
+                                                   private=True)
+        # Valid city, state, country
+        test_message.context['user_profiles'][0]['location']['city'] = "Renton"
+        test_message.context['user_profiles'][0]['location']['state'] = \
+            "Washington"
+        test_message.context['user_profiles'][0]['location']['country'] = \
+            "United States"
         self.skill.handle_say_my_location(test_message)
         self.skill.speak_dialog.assert_called_with(
             "location_is", {"location": "Renton, Washington"}, private=True)
 
+        # Valid city, country
         test_message.context['user_profiles'][0]['location']['city'] = "Kyiv"
         test_message.context['user_profiles'][0]['location']['state'] = ""
         test_message.context['user_profiles'][0]['location']['country'] = \
