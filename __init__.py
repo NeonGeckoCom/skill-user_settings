@@ -78,19 +78,24 @@ class UserSettingsSkill(NeonSkill):
             return
         from neon_utils.user_utils import apply_local_user_profile_updates
         from neon_utils.configuration_utils import get_neon_user_config
-        new_loc = {
-                'lat': str(updated_location['coordinate']['latitude']),
-                'lon': str(updated_location['coordinate']['longitude']),
-                'city': updated_location['city']['name'],
-                'state': updated_location['city']['state']['name'],
-                'country': updated_location['city']['state']['country']['name'],
-            }
-        name, offset = self._get_timezone_from_location(new_loc)
-        new_loc['lng'] = new_loc.pop('lon')
-        new_loc['tz'] = name
-        new_loc['utc'] = str(round(offset, 1))
-        apply_local_user_profile_updates({'location': new_loc},
-                                         get_neon_user_config())
+        user_config = get_neon_user_config()
+        if not user_config['lat'] or not user_config['lng']:
+            LOG.info(f'Updating default user config from ip geolocation')
+            new_loc = {
+                    'lat': str(updated_location['coordinate']['latitude']),
+                    'lon': str(updated_location['coordinate']['longitude']),
+                    'city': updated_location['city']['name'],
+                    'state': updated_location['city']['state']['name'],
+                    'country': updated_location['city']['state']['country']['name'],
+                }
+            name, offset = self._get_timezone_from_location(new_loc)
+            new_loc['lng'] = new_loc.pop('lon')
+            new_loc['tz'] = name
+            new_loc['utc'] = str(round(offset, 1))
+            apply_local_user_profile_updates({'location': new_loc},
+                                             get_neon_user_config())
+        else:
+            LOG.debug(f'Ignoring IP location for already defined user location')
 
     @property
     def stt_languages(self) -> Optional[set]:
@@ -423,12 +428,21 @@ class UserSettingsSkill(NeonSkill):
         if not self.neon_in_request(message):
             return
         location_prefs = get_user_prefs(message)["location"]
-        friendly_location = ", ".join([x for x in
-                                       (location_prefs["city"],
-                                        location_prefs["state"] or
-                                        location_prefs["country"])])
-        self.speak_dialog("location_is", {"location": friendly_location},
-                          private=True)
+        if not location_prefs["city"]:
+            from neon_utils.net_utils import check_online
+            if check_online():
+                self.speak_dialog("location_unknown_online",
+                                  private=True)
+            else:
+                self.speak_dialog("location_unknown_offline",
+                                  private=True)
+        else:
+            friendly_location = ", ".join([x for x in
+                                           (location_prefs["city"],
+                                            location_prefs["state"] or
+                                            location_prefs["country"])])
+            self.speak_dialog("location_is", {"location": friendly_location},
+                              private=True)
 
     @intent_handler(IntentBuilder("SetMyBirthday").require("my")
                     .require("birthday").build())
