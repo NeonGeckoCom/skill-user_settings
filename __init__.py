@@ -314,7 +314,7 @@ class UserSettingsSkill(NeonSkill):
                                "location": resolved_place['address']['city']},
                               private=True)
 
-    @intent_handler(IntentBuilder("change_dialog").require("change")
+    @intent_handler(IntentBuilder("ChangeDialog").require("change")
                     .require("dialog_mode").one_of("random", "limited")
                     .build())
     def handle_change_dialog_mode(self, message: Message):

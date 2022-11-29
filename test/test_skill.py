@@ -25,7 +25,7 @@
 # LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
+import json
 import os
 import shutil
 import unittest
@@ -171,7 +171,7 @@ class TestSkill(unittest.TestCase):
         # 12 -> 12
         self.skill.handle_time_format_change(test_message)
         self.skill.speak_dialog.assert_called_once_with(
-            "time_format_already_set", {"scale": "12"},  private=True)
+            "time_format_already_set", {"scale": "12"}, private=True)
         self.assertEqual(
             test_message.context["user_profiles"][0]["units"]["time"], 12)
         # 12 -> 24
@@ -1008,8 +1008,8 @@ class TestSkill(unittest.TestCase):
                                                         'pl', 'fr', 'es', 'bg',
                                                         'en'},
                                                    {'it', 'ja', 'de', 'uk',
-                                                        'pl', 'fr', 'es',
-                                                        'en'})
+                                                    'pl', 'fr', 'es',
+                                                    'en'})
 
         test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
@@ -1362,6 +1362,174 @@ class TestSkill(unittest.TestCase):
                          self.skill._get_lang_code_and_name("farsi"))
         with self.assertRaises(UnsupportedLanguageError):
             self.skill._get_lang_code_and_name("nothing")
+
+
+class TestSkillLoading(unittest.TestCase):
+    """
+    Test skill loading, intent registration, and langauge support. Test cases
+    are generic, only class variables should be modified per-skill.
+    """
+    # Static parameters
+    bus = FakeBus()
+    messages = list()
+    test_skill_id = 'test_skill.test'
+    # Default Core Events
+    default_events = ["mycroft.skill.enable_intent",
+                      "mycroft.skill.disable_intent",
+                      "mycroft.skill.set_cross_context",
+                      "mycroft.skill.remove_cross_context",
+                      "intent.service.skills.deactivated",
+                      "intent.service.skills.activated",
+                      "mycroft.skills.settings.changed",
+                      "skill.converse.ping",
+                      "skill.converse.request",
+                      f"{test_skill_id}.activate",
+                      f"{test_skill_id}.deactivate"
+                      ]
+
+    # Import and initialize installed skill
+    from skill_user_settings import UserSettingsSkill
+    skill = UserSettingsSkill()
+
+    # Specify valid languages to test
+    supported_languages = ["en-us"]
+    print(test_skill_id)
+    # Specify skill intents as sets
+    adapt_intents = {f'{test_skill_id}:{intent}' for intent in
+                     ('ChangeUnits',
+                      'ChangeTime',
+                      'SetHesitation',
+                      'Transcription',
+                      'SpeakSpeed',
+                      'ChangeLocationTimezone',
+                      'ChangeDialog',
+                      'SayMyName',
+                      'SayMyEmail',
+                      'SayMyLocation',
+                      'SetMyBirthday',
+                      'SetMyEmail',
+                      'SetMyName',
+                      'MyNameIs',
+                      'SayMyLanguageSettings',
+                      'SetSTTLanguage',
+                      'SetTTSLanguage',
+                      'TalkToMe',
+                      'SetPreferredLanguage',
+                      'SetMyLanguage',
+                      'NoSecondaryLanguage')}
+    padatious_intents = set(f'{test_skill_id}:{intent}' for intent in
+                            ('where_am_i.intent',
+                             'language_settings.intent',
+                             'language_stt.intent'))
+
+    # regex entities, not necessarily filenames
+    regex = {'rx_language', 'rx_name', 'rx_place', 'rx_primary', 'rx_secondary',
+             'rx_setting'}
+    # vocab is lowercase .voc file basenames
+    vocab = {'at', 'audio', 'birthday', 'change', 'deny', 'dialog_mode', 'dot',
+             'email', 'faster', 'female', 'first_name', 'full', 'full_name',
+             'half', 'hesitation', 'imperial', 'language', 'language_settings',
+             'language_stt', 'language_tts', 'last_name', 'limited', 'location',
+             'male', 'metric', 'middle_name', 'my', 'my_name_is', 'name',
+             'no_secondary_language', 'normally', 'permit',
+             'preferred_language', 'preferred_name', 'random', 'retention',
+             'slower', 'speak_to_me', 'tell_me_my', 'text', 'time', 'timezone',
+             'units', 'username'}
+    # dialog is .dialog file basenames (case-sensitive)
+    dialog = {'speech_speed_slower', 'word_last_name', 'happy_birthday',
+              'email_overwrite', 'word_location', 'language_not_recognized',
+              'name_is', 'transcription_changed', 'language_setting',
+              'dialog_mode_changed', 'location_is', 'word_imperial',
+              'email_not_known', 'speech_speed_limit', 'word_understand',
+              'speech_speed_faster', 'name_set_part', 'name_not_changed',
+              'location_not_found', 'birthday_not_heard',
+              'language_not_confirmed', 'word_disabled', 'word_random',
+              'word_speak', 'email_not_confirmed', 'word_limited',
+              'email_not_changed', 'hesitation_disabled', 'name_set_full',
+              'word_female', 'word_full_name', 'language_not_supported',
+              'location_uknown_offline', 'hesitation_enabled',
+              'birthday_confirmed', 'word_slower', 'word_primary',
+              'change_location_tz', 'language_not_changed', 'word_audio',
+              'language_change_confirmation', 'time_format_already_set',
+              'word_timezone', 'units_already_set', 'only_one_language',
+              'email_set', 'email_confirmation', 'language_set',
+              'language_not_heard', 'email_is', 'location_unknown_online',
+              'dialog_mode_already_set', 'time_format_changed',
+              'word_preferred_name', 'word_stt', 'units_changed',
+              'name_not_known', 'word_name', 'email_already_set_same',
+              'also_change_location_tz', 'word_male', 'word_middle_name',
+              'word_metric', 'word_username', 'word_faster', 'email_set_error',
+              'word_enabled', 'transcription_already_set',
+              'speech_speed_normal', 'word_secondary', 'word_text',
+              'word_first_name'}
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.bus.on("message", cls._on_message)
+        cls.skill.config_core["secondary_langs"] = cls.supported_languages
+        cls.skill._startup(cls.bus, cls.test_skill_id)
+
+    @classmethod
+    def _on_message(cls, message):
+        cls.messages.append(json.loads(message))
+
+    def test_skill_setup(self):
+        self.assertEqual(self.skill.skill_id, self.test_skill_id)
+        for msg in self.messages:
+            self.assertEqual(msg["context"]["skill_id"], self.test_skill_id)
+
+    def test_intent_registration(self):
+        registered_adapt = list()
+        registered_padatious = list()
+        registered_vocab = dict()
+        registered_regex = dict()
+        for msg in self.messages:
+            if msg["type"] == "register_intent":
+                registered_adapt.append(msg["data"]["name"])
+            elif msg["type"] == "padatious:register_intent":
+                registered_padatious.append(msg["data"]["name"])
+            elif msg["type"] == "register_vocab":
+                lang = msg["data"]["lang"]
+                if msg['data'].get('regex'):
+                    registered_regex.setdefault(lang, dict())
+                    regex = msg["data"]["regex"].split(
+                        '<', 1)[1].split('>', 1)[0].replace(
+                        self.test_skill_id.replace('.', '_'), '').lower()
+                    registered_regex[lang].setdefault(regex, list())
+                    registered_regex[lang][regex].append(msg["data"]["regex"])
+                else:
+                    registered_vocab.setdefault(lang, dict())
+                    voc_filename = msg["data"]["entity_type"].replace(
+                        self.test_skill_id.replace('.', '_'), '').lower()
+                    registered_vocab[lang].setdefault(voc_filename, list())
+                    registered_vocab[lang][voc_filename].append(
+                        msg["data"]["entity_value"])
+        self.assertEqual(set(registered_adapt), self.adapt_intents)
+        self.assertEqual(set(registered_padatious), self.padatious_intents)
+        for lang in self.supported_languages:
+            if self.vocab:
+                self.assertEqual(set(registered_vocab[lang].keys()), self.vocab)
+            if self.regex:
+                self.assertEqual(set(registered_regex[lang].keys()), self.regex)
+            for voc in self.vocab:
+                # Ensure every vocab file has at least one entry
+                self.assertGreater(len(registered_vocab[lang][voc]), 0)
+            for rx in self.regex:
+                # Ensure every vocab file has exactly one entry
+                self.assertTrue(all((rx in line for line in
+                                     registered_regex[lang][rx])))
+
+    def test_skill_events(self):
+        events = self.default_events + list(self.adapt_intents)
+        for event in events:
+            self.assertIn(event, [e[0] for e in self.skill.events])
+
+    def test_dialog_files(self):
+        for lang in self.supported_languages:
+            for dialog in self.dialog:
+                file = self.skill.find_resource(f"{dialog}.dialog", "dialog",
+                                                lang)
+                self.assertTrue(os.path.isfile(file))
 
 
 if __name__ == '__main__':
