@@ -1395,32 +1395,30 @@ class TestSkillLoading(unittest.TestCase):
     supported_languages = ["en-us"]
     print(test_skill_id)
     # Specify skill intents as sets
-    adapt_intents = {f'{test_skill_id}:{intent}' for intent in
-                     ('ChangeUnits',
-                      'ChangeTime',
-                      'SetHesitation',
-                      'Transcription',
-                      'SpeakSpeed',
-                      'ChangeLocationTimezone',
-                      'ChangeDialog',
-                      'SayMyName',
-                      'SayMyEmail',
-                      'SayMyLocation',
-                      'SetMyBirthday',
-                      'SetMyEmail',
-                      'SetMyName',
-                      'MyNameIs',
-                      'SayMyLanguageSettings',
-                      'SetSTTLanguage',
-                      'SetTTSLanguage',
-                      'TalkToMe',
-                      'SetPreferredLanguage',
-                      'SetMyLanguage',
-                      'NoSecondaryLanguage')}
-    padatious_intents = set(f'{test_skill_id}:{intent}' for intent in
-                            ('where_am_i.intent',
-                             'language_settings.intent',
-                             'language_stt.intent'))
+    adapt_intents = {'ChangeUnits',
+                     'ChangeTime',
+                     'SetHesitation',
+                     'Transcription',
+                     'SpeakSpeed',
+                     'ChangeLocationTimezone',
+                     'ChangeDialog',
+                     'SayMyName',
+                     'SayMyEmail',
+                     'SayMyLocation',
+                     'SetMyBirthday',
+                     'SetMyEmail',
+                     'SetMyName',
+                     'MyNameIs',
+                     'SayMyLanguageSettings',
+                     'SetSTTLanguage',
+                     'SetTTSLanguage',
+                     'TalkToMe',
+                     'SetPreferredLanguage',
+                     'SetMyLanguage',
+                     'NoSecondaryLanguage'}
+    padatious_intents = {'where_am_i.intent',
+                         'language_settings.intent',
+                         'language_stt.intent'}
 
     # regex entities, not necessarily filenames
     regex = {'rx_language', 'rx_name', 'rx_place', 'rx_primary', 'rx_secondary',
@@ -1468,6 +1466,10 @@ class TestSkillLoading(unittest.TestCase):
         cls.bus.on("message", cls._on_message)
         cls.skill.config_core["secondary_langs"] = cls.supported_languages
         cls.skill._startup(cls.bus, cls.test_skill_id)
+        cls.adapt_intents = {f'{cls.test_skill_id}:{intent}'
+                             for intent in cls.adapt_intents}
+        cls.padatious_intents = {f'{cls.test_skill_id}:{intent}'
+                                 for intent in cls.padatious_intents}
 
     @classmethod
     def _on_message(cls, message):
