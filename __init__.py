@@ -641,8 +641,10 @@ class UserSettingsSkill(NeonSkill):
         Handle a request to change the language spoken by the user
         :param message: Message associated with request
         """
+        requested_lang = message.data.get('rx_language') or \
+            message.data.get('request_language')
         lang = self._parse_languages(message.data.get("utterance"))[0] or \
-            message.data.get("rx_language").split()[-1]
+            requested_lang.split()[-1]
         try:
             code, spoken_lang = self._get_lang_code_and_name(lang)
         except UnsupportedLanguageError as e:

@@ -1,2 +1,2 @@
-i speak {language}
-i will speak to you in {language}
+i speak {request_language}
+i will speak to you in {request_language}

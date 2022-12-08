@@ -142,9 +142,9 @@ en-us:
         - rx_language: spanish
   language_stt.intent:
     - i speak british english:
-        - language: british english
+        - request_language: british english
     - I will speak to you in french:
-        - language: french
+        - request_language: french
   SetTTSLanguage:
     - change my output language to some test:
         - rx_language: some test
