@@ -97,6 +97,8 @@ class UserSettingsSkill(NeonSkill):
                                              get_neon_user_config())
         else:
             LOG.debug(f'Ignoring IP location for already defined user location')
+        # Remove listener after a successful update
+        self.remove_event('ovos.ipgeo.update.response')
 
     @property
     def stt_languages(self) -> Optional[set]:
