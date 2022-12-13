@@ -57,24 +57,25 @@ class UserSettingsSkill(NeonSkill):
 
     def initialize(self):
         if self.settings.get('use_geolocation'):
-            # TODO: Better check here
+            LOG.debug(f"Geolocation update enabled")
             if is_connected():
-                LOG.debug('Internet connected, updating location')
+                LOG.debug('Internet connected, request location update')
                 self._request_location_update()
             else:
-                self.add_event('ovos.wifi.setup.completed',
+                LOG.debug('Waiting for internet to request location update')
+                self.add_event('mycroft.internet.connected',
                                self._request_location_update, once=True)
 
     def _request_location_update(self, _=None):
         LOG.info(f'Requesting Geolocation update')
         self.add_event('ovos.ipgeo.update.response',
-                       self._handle_location_ipgeo_update, once=True)
+                       self._handle_location_ipgeo_update)
         self.bus.emit(Message('ovos.ipgeo.update', {'overwrite': True}))
 
     def _handle_location_ipgeo_update(self, message):
         updated_location = message.data.get('location')
         if not updated_location:
-            LOG.warning(f"No geolocation config")
+            LOG.warning(f"No geolocation returned by plugin")
             return
         from neon_utils.user_utils import apply_local_user_profile_updates
         from neon_utils.configuration_utils import get_neon_user_config
