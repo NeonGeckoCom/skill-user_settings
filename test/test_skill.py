@@ -119,6 +119,10 @@ class TestSkill(unittest.TestCase):
 
         self.skill._languages = real_languages
 
+    def test_location_update(self):
+        # TODO: Test ipgeo update at init
+        pass
+
     def test_handle_unit_change(self):
         test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
