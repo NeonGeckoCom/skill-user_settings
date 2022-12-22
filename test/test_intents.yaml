@@ -63,6 +63,9 @@ en-us:
     - disable voice recording retention:
         - deny
         - audio
+    - enable audio recordings
+    - disable transcriptions
+    - permit transcriptions
   SpeakSpeed:
     - talk to me faster
     - speak to me normally
