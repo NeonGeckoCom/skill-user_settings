@@ -1459,7 +1459,7 @@ class TestSkillLoading(unittest.TestCase):
               'word_metric', 'word_username', 'word_faster', 'email_set_error',
               'word_enabled', 'transcription_already_set',
               'speech_speed_normal', 'word_secondary', 'word_text',
-              'word_first_name'}
+              'word_first_name', 'error_change_username'}
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -1536,6 +1536,68 @@ class TestSkillLoading(unittest.TestCase):
                 file = self.skill.find_resource(f"{dialog}.dialog", "dialog",
                                                 lang)
                 self.assertTrue(os.path.isfile(file))
+
+
+class TestSkillIntentMatching(unittest.TestCase):
+    # Import and initialize installed skill
+    from skill_user_settings import UserSettingsSkill
+    skill = UserSettingsSkill()
+
+    import yaml
+    test_intents = join(dirname(__file__), 'test_intents.yaml')
+    with open(test_intents) as f:
+        valid_intents = yaml.safe_load(f)
+
+    from mycroft.skills.intent_service import IntentService
+    bus = FakeBus()
+    intent_service = IntentService(bus)
+    test_skill_id = 'test_skill.test'
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.skill.config_core["secondary_langs"] = list(cls.valid_intents.keys())
+        cls.skill._startup(cls.bus, cls.test_skill_id)
+
+    def test_intents(self):
+        for lang in self.valid_intents.keys():
+            for intent, examples in self.valid_intents[lang].items():
+                intent_event = f'{self.test_skill_id}:{intent}'
+                self.skill.events.remove(intent_event)
+                intent_handler = Mock()
+                self.skill.events.add(intent_event, intent_handler)
+                for utt in examples:
+                    if isinstance(utt, dict):
+                        data = list(utt.values())[0]
+                        utt = list(utt.keys())[0]
+                    else:
+                        data = list()
+                    message = Message('test_utterance',
+                                      {"utterances": [utt], "lang": lang})
+                    self.intent_service.handle_utterance(message)
+                    intent_handler.assert_called_once()
+                    intent_message = intent_handler.call_args[0][0]
+                    self.assertIsInstance(intent_message, Message)
+                    self.assertEqual(intent_message.msg_type, intent_event)
+                    for datum in data:
+                        if isinstance(datum, dict):
+                            name = list(datum.keys())[0]
+                            value = list(datum.values())[0]
+                        else:
+                            name = datum
+                            value = None
+                        if name in intent_message.data:
+                            # This is an entity
+                            voc_id = name
+                        else:
+                            # We mocked the handler, data is munged
+                            voc_id = f'{self.test_skill_id.replace(".", "_")}' \
+                                     f'{name}'
+                        self.assertIsInstance(intent_message.data.get(voc_id),
+                                              str, intent_message.data)
+                        if value:
+                            self.assertEqual(intent_message.data.get(voc_id),
+                                             value)
+                    intent_handler.reset_mock()
 
 
 if __name__ == '__main__':

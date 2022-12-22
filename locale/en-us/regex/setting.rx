@@ -1,1 +1,1 @@
-(is) (?P<rx_setting>.*)
+(is|to) (?P<rx_setting>.*)

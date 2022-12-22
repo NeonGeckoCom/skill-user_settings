@@ -32,6 +32,7 @@ from typing import Optional, Tuple
 from adapt.intent import IntentBuilder
 from dateutil.tz import gettz
 from lingua_franca import load_language
+from lingua_franca.time import default_timezone
 from mycroft_bus_client import Message
 from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
@@ -317,7 +318,7 @@ class UserSettingsSkill(NeonSkill):
                                "location": resolved_place['address']['city']},
                               private=True)
 
-    @intent_handler(IntentBuilder("ChangeDialog").require("change")
+    @intent_handler(IntentBuilder("ChangeDialog").one_of("change", "permit")
                     .require("dialog_mode").one_of("random", "limited")
                     .build())
     def handle_change_dialog_mode(self, message: Message):
@@ -457,9 +458,8 @@ class UserSettingsSkill(NeonSkill):
         if not self.neon_in_request(message):
             return
         load_language(self.lang)
-
-        user_tz = gettz(get_user_prefs(message)['location']['tz']) or \
-            self.sys_tz
+        user_tz = gettz(self.location_timezone) if self.location_timezone else \
+            default_timezone()
         now_time = datetime.now(user_tz)
         try:
             birth_date, _ = extract_datetime(message.data.get("utterance"),
@@ -557,9 +557,9 @@ class UserSettingsSkill(NeonSkill):
         elif self.voc_match(utterance, "preferred_name"):
             name = name.title()
             request = "preferred_name"
-        # TODO: Consider setting username and updating all references
-        # elif self.voc_match(utterance, "username"):
-        #     request = "username"
+        elif self.voc_match(utterance, "username"):
+            self.speak_dialog("error_change_username", private=True)
+            return
         else:
             name = name.title()
             request = None
@@ -644,8 +644,10 @@ class UserSettingsSkill(NeonSkill):
         Handle a request to change the language spoken by the user
         :param message: Message associated with request
         """
+        requested_lang = message.data.get('rx_language') or \
+            message.data.get('request_language')
         lang = self._parse_languages(message.data.get("utterance"))[0] or \
-            message.data.get("rx_language").split()[-1]
+            requested_lang.split()[-1]
         try:
             code, spoken_lang = self._get_lang_code_and_name(lang)
         except UnsupportedLanguageError as e:
