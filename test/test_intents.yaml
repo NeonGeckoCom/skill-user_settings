@@ -87,6 +87,8 @@ en-us:
     - tell me my name
     - what is my name
     - do you know my first name?
+    - tell me my first name
+    - tell me my username
   SayMyEmail:
     - tell me my email
     - do you know my email address
@@ -120,7 +122,13 @@ en-us:
         - rx_setting: tester
     - my middle name is a test:
         - rx_setting: a test
+    - change my preferred name to dan:
+        - rx_setting: dan
   MyNameIs:
+    - my user name is testing:
+        - rx_name: testing
+    - my username is test:
+        - rx_name: test
     - my name is test user:
         - rx_name: test user
     - call me anything:

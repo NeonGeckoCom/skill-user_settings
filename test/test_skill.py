@@ -1459,7 +1459,7 @@ class TestSkillLoading(unittest.TestCase):
               'word_metric', 'word_username', 'word_faster', 'email_set_error',
               'word_enabled', 'transcription_already_set',
               'speech_speed_normal', 'word_secondary', 'word_text',
-              'word_first_name'}
+              'word_first_name', 'error_change_username'}
 
     @classmethod
     def setUpClass(cls) -> None:
