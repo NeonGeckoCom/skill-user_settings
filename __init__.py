@@ -190,7 +190,8 @@ class UserSettingsSkill(NeonSkill):
             self.speak_dialog("hesitation_disabled", private=True)
 
     @intent_handler(IntentBuilder("Transcription").one_of("permit", "deny")
-                    .one_of("audio", "text").require("retention").build())
+                    .optionally("audio").optionally("text").require("retention")
+                    .build())
     def handle_transcription_retention(self, message: Message):
         """
         Handle a request to permit or deny saving audio recordings
@@ -200,7 +201,8 @@ class UserSettingsSkill(NeonSkill):
         kind = "save_audio" if message.data.get("audio") else \
             "save_text" if message.data.get("text") else None
         if not kind:
-            raise RuntimeError("Missing required transcription type")
+            LOG.warning(f"No transcription type specified, assume text")
+            kind = 'save_text'
 
         transcription = "word_audio" if kind == "save_audio" else "word_text"
         enabled = "word_enabled" if allow else "word_disabled"
