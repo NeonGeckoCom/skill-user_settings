@@ -607,6 +607,14 @@ class TestSkill(unittest.TestCase):
             "name_is", {"name_position": "username",
                         "name": "test_user"}, private=True)
 
+        # Username not supported
+        test_message.data['utterance'] = "tell me my username"
+        test_message.context['username'] = 'local'
+        test_message.context['user_profiles'][0]['user']['username'] = 'local'
+        self.skill.handle_say_my_name(test_message)
+        self.skill.speak_dialog.assert_called_with("name_no_username",
+                                                   private=True)
+
     def test_handle_say_my_email(self):
         test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
