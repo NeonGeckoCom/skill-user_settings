@@ -59,13 +59,8 @@ class UserSettingsSkill(NeonSkill):
     def initialize(self):
         if self.settings.get('use_geolocation'):
             LOG.debug(f"Geolocation update enabled")
-            if is_connected():
-                LOG.debug('Internet connected, request location update')
-                self._request_location_update()
-            else:
-                LOG.debug('Waiting for internet to request location update')
-                self.add_event('mycroft.internet.connected',
-                               self._request_location_update, once=True)
+            self.add_event("mycroft.ready", self._request_location_update,
+                           once=True)
 
     def _request_location_update(self, _=None):
         LOG.info(f'Requesting Geolocation update')
