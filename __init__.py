@@ -28,6 +28,7 @@
 
 import re
 from datetime import datetime
+from threading import Event
 from typing import Optional, Tuple
 from adapt.intent import IntentBuilder
 from dateutil.tz import gettz
@@ -55,6 +56,7 @@ class UserSettingsSkill(NeonSkill):
     def __init__(self):
         super(UserSettingsSkill, self).__init__(name="UserSettingsSkill")
         self._languages = None
+        self._get_location = Event()
 
     def initialize(self):
         if self.settings.get('use_geolocation'):
@@ -66,9 +68,17 @@ class UserSettingsSkill(NeonSkill):
         LOG.info(f'Requesting Geolocation update')
         self.add_event('ovos.ipgeo.update.response',
                        self._handle_location_ipgeo_update)
+        self._get_location.clear()
         self.bus.emit(Message('ovos.ipgeo.update', {'overwrite': True}))
+        if self._get_location.wait(10):
+            return
+        LOG.warning("No geolocation response, retrying...")
+        self.bus.emit(Message('ovos.ipgeo.update', {'overwrite': True}))
+        if not self._get_location.wait(30):
+            LOG.error("No geolocation response")
 
     def _handle_location_ipgeo_update(self, message):
+        self._get_location.set()
         updated_location = message.data.get('location')
         if not updated_location:
             LOG.warning(f"No geolocation returned by plugin")
