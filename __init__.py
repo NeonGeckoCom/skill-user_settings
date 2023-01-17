@@ -28,10 +28,12 @@
 
 import re
 from datetime import datetime
+from threading import Event
 from typing import Optional, Tuple
 from adapt.intent import IntentBuilder
 from dateutil.tz import gettz
 from lingua_franca import load_language
+from lingua_franca.time import default_timezone
 from mycroft_bus_client import Message
 from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
@@ -54,43 +56,56 @@ class UserSettingsSkill(NeonSkill):
     def __init__(self):
         super(UserSettingsSkill, self).__init__(name="UserSettingsSkill")
         self._languages = None
+        self._get_location = Event()
 
     def initialize(self):
         if self.settings.get('use_geolocation'):
-            # TODO: Better check here
-            if is_connected():
-                LOG.debug('Internet connected, updating location')
-                self._request_location_update()
-            else:
-                self.add_event('ovos.wifi.setup.completed',
-                               self._request_location_update, once=True)
+            LOG.debug(f"Geolocation update enabled")
+            self.add_event("mycroft.ready", self._request_location_update,
+                           once=True)
 
     def _request_location_update(self, _=None):
         LOG.info(f'Requesting Geolocation update')
         self.add_event('ovos.ipgeo.update.response',
-                       self._handle_location_ipgeo_update, once=True)
+                       self._handle_location_ipgeo_update)
+        self._get_location.clear()
         self.bus.emit(Message('ovos.ipgeo.update', {'overwrite': True}))
+        if self._get_location.wait(10):
+            return
+        LOG.warning("No geolocation response, retrying...")
+        self.bus.emit(Message('ovos.ipgeo.update', {'overwrite': True}))
+        if not self._get_location.wait(30):
+            LOG.error("No geolocation response")
 
     def _handle_location_ipgeo_update(self, message):
+        self._get_location.set()
         updated_location = message.data.get('location')
         if not updated_location:
-            LOG.warning(f"No geolocation config")
+            LOG.warning(f"No geolocation returned by plugin")
             return
         from neon_utils.user_utils import apply_local_user_profile_updates
         from neon_utils.configuration_utils import get_neon_user_config
-        new_loc = {
-                'lat': str(updated_location['coordinate']['latitude']),
-                'lon': str(updated_location['coordinate']['longitude']),
-                'city': updated_location['city']['name'],
-                'state': updated_location['city']['state']['name'],
-                'country': updated_location['city']['state']['country']['name'],
-            }
-        name, offset = self._get_timezone_from_location(new_loc)
-        new_loc['lng'] = new_loc.pop('lon')
-        new_loc['tz'] = name
-        new_loc['utc'] = str(round(offset, 1))
-        apply_local_user_profile_updates({'location': new_loc},
-                                         get_neon_user_config())
+        user_config = get_neon_user_config()
+        if not all((user_config['location']['lat'],
+                    user_config['location']['lng'])):
+            LOG.info(f'Updating default user config from ip geolocation')
+            new_loc = {
+                    'lat': str(updated_location['coordinate']['latitude']),
+                    'lon': str(updated_location['coordinate']['longitude']),
+                    'city': updated_location['city']['name'],
+                    'state': updated_location['city']['state']['name'],
+                    'country': updated_location['city']['state']['country']['name'],
+                }
+            name, offset = self._get_timezone_from_location(new_loc)
+            new_loc['lng'] = new_loc.pop('lon')
+            new_loc['tz'] = name
+            new_loc['utc'] = str(round(offset, 1))
+            apply_local_user_profile_updates({'location': new_loc},
+                                             get_neon_user_config())
+        else:
+            LOG.debug(f'Ignoring IP location for already defined user location')
+        # Remove listener after a successful update
+        self.remove_event('ovos.ipgeo.update.response')
 
     @property
     def stt_languages(self) -> Optional[set]:
@@ -181,7 +196,8 @@ class UserSettingsSkill(NeonSkill):
             self.speak_dialog("hesitation_disabled", private=True)
 
     @intent_handler(IntentBuilder("Transcription").one_of("permit", "deny")
-                    .one_of("audio", "text").require("retention").build())
+                    .optionally("audio").optionally("text").require("retention")
+                    .build())
     def handle_transcription_retention(self, message: Message):
         """
         Handle a request to permit or deny saving audio recordings
@@ -191,7 +207,8 @@ class UserSettingsSkill(NeonSkill):
         kind = "save_audio" if message.data.get("audio") else \
             "save_text" if message.data.get("text") else None
         if not kind:
-            raise RuntimeError("Missing required transcription type")
+            LOG.warning(f"No transcription type specified, assume text")
+            kind = 'save_text'
 
         transcription = "word_audio" if kind == "save_audio" else "word_text"
         enabled = "word_enabled" if allow else "word_disabled"
@@ -309,7 +326,7 @@ class UserSettingsSkill(NeonSkill):
                                "location": resolved_place['address']['city']},
                               private=True)
 
-    @intent_handler(IntentBuilder("change_dialog").require("change")
+    @intent_handler(IntentBuilder("ChangeDialog").one_of("change", "permit")
                     .require("dialog_mode").one_of("random", "limited")
                     .build())
     def handle_change_dialog_mode(self, message: Message):
@@ -386,10 +403,13 @@ class UserSettingsSkill(NeonSkill):
             request = "word_name"
 
         if not name or name == profile["user"]["username"] == 'local':
-            # TODO: Use get_response to ask for the user's name
-            self.speak_dialog("name_not_known",
-                              {"name_position": self.translate(request)},
-                              private=True)
+            if request == "word_username":
+                self.speak_dialog("name_no_username", private=True)
+            else:
+                # TODO: Use get_response to ask for the user's name
+                self.speak_dialog("name_not_known",
+                                  {"name_position": self.translate(request)},
+                                  private=True)
         else:
             self.speak_dialog("name_is",
                               {"name_position": self.translate(request),
@@ -423,12 +443,21 @@ class UserSettingsSkill(NeonSkill):
         if not self.neon_in_request(message):
             return
         location_prefs = get_user_prefs(message)["location"]
-        friendly_location = ", ".join([x for x in
-                                       (location_prefs["city"],
-                                        location_prefs["state"] or
-                                        location_prefs["country"])])
-        self.speak_dialog("location_is", {"location": friendly_location},
-                          private=True)
+        if not location_prefs["city"]:
+            from neon_utils.net_utils import check_online
+            if check_online():
+                self.speak_dialog("location_unknown_online",
+                                  private=True)
+            else:
+                self.speak_dialog("location_unknown_offline",
+                                  private=True)
+        else:
+            friendly_location = ", ".join([x for x in
+                                           (location_prefs["city"],
+                                            location_prefs["state"] or
+                                            location_prefs["country"])])
+            self.speak_dialog("location_is", {"location": friendly_location},
+                              private=True)
 
     @intent_handler(IntentBuilder("SetMyBirthday").require("my")
                     .require("birthday").build())
@@ -440,9 +469,8 @@ class UserSettingsSkill(NeonSkill):
         if not self.neon_in_request(message):
             return
         load_language(self.lang)
-
-        user_tz = gettz(get_user_prefs(message)['location']['tz']) or \
-            self.sys_tz
+        user_tz = gettz(self.location_timezone) if self.location_timezone else \
+            default_timezone()
         now_time = datetime.now(user_tz)
         try:
             birth_date, _ = extract_datetime(message.data.get("utterance"),
@@ -540,9 +568,9 @@ class UserSettingsSkill(NeonSkill):
         elif self.voc_match(utterance, "preferred_name"):
             name = name.title()
             request = "preferred_name"
-        # TODO: Consider setting username and updating all references
-        # elif self.voc_match(utterance, "username"):
-        #     request = "username"
+        elif self.voc_match(utterance, "username"):
+            self.speak_dialog("error_change_username", private=True)
+            return
         else:
             name = name.title()
             request = None
@@ -627,8 +655,10 @@ class UserSettingsSkill(NeonSkill):
         Handle a request to change the language spoken by the user
         :param message: Message associated with request
         """
+        requested_lang = message.data.get('rx_language') or \
+            message.data.get('request_language')
         lang = self._parse_languages(message.data.get("utterance"))[0] or \
-            message.data.get("rx_language").split()[-1]
+            requested_lang.split()[-1]
         try:
             code, spoken_lang = self._get_lang_code_and_name(lang)
         except UnsupportedLanguageError as e:
