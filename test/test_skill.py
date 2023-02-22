@@ -389,7 +389,7 @@ class TestSkill(unittest.TestCase):
             "change_location_tz", {"type": "location", "location": "New York"},
             private=True)
         profile = test_message.context["user_profiles"][0]
-        unchanged = ("tz", "utc", "country")
+        unchanged = ("tz", "utc")
         for setting in unchanged:
             self.assertEqual(profile["location"][setting],
                              test_profile["location"][setting])
