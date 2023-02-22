@@ -51,6 +51,7 @@ from mycroft.skills.skill_loader import SkillLoader
 class TestSkill(unittest.TestCase):
     test_message = Message("test", {}, {"neon_in_request": True})
     default_config = deepcopy(get_user_prefs())
+    default_config['location']['country'] = "United States"
 
     @classmethod
     @mock.patch('neon_utils.language_utils.get_supported_languages')
@@ -389,7 +390,7 @@ class TestSkill(unittest.TestCase):
             "change_location_tz", {"type": "location", "location": "New York"},
             private=True)
         profile = test_message.context["user_profiles"][0]
-        unchanged = ("tz", "utc")
+        unchanged = ("tz", "utc", "country")
         for setting in unchanged:
             self.assertEqual(profile["location"][setting],
                              test_profile["location"][setting])
