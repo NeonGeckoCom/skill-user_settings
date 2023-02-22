@@ -37,14 +37,15 @@ from lingua_franca.time import default_timezone
 from mycroft_bus_client import Message
 from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
-from neon_utils.logger import LOG
 from neon_utils.user_utils import get_user_prefs
 from neon_utils.language_utils import get_supported_languages
 from lingua_franca.parse import extract_langcode, get_full_lang_code
 from lingua_franca.format import pronounce_lang
 from lingua_franca.internal import UnsupportedLanguageError
 from ovos_utils.file_utils import read_vocab_file
-from ovos_utils.network_utils import is_connected
+from ovos_utils import classproperty
+from ovos_utils.log import LOG
+from ovos_utils.process_utils import RuntimeRequirements
 from mycroft.skills.core import intent_handler, intent_file_handler
 from mycroft.util.parse import extract_datetime
 
@@ -57,6 +58,18 @@ class UserSettingsSkill(NeonSkill):
         super(UserSettingsSkill, self).__init__(name="UserSettingsSkill")
         self._languages = None
         self._get_location = Event()
+
+    @classproperty
+    def runtime_requirements(self):
+        return RuntimeRequirements(network_before_load=False,
+                                   internet_before_load=False,
+                                   gui_before_load=False,
+                                   requires_internet=True,
+                                   requires_network=True,
+                                   requires_gui=False,
+                                   no_internet_fallback=True,
+                                   no_network_fallback=True,
+                                   no_gui_fallback=True)
 
     def initialize(self):
         if self.settings.get('use_geolocation'):
