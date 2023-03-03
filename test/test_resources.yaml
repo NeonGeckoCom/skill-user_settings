@@ -52,32 +52,80 @@ vocab:
   - 'username'
 
 # dialog is .dialog file basenames (case-sensitive)
-dialog: ['speech_speed_slower', 'word_last_name', 'happy_birthday',
-      'email_overwrite', 'word_location', 'language_not_recognized',
-      'name_is', 'transcription_changed', 'language_setting',
-      'dialog_mode_changed', 'location_is', 'word_imperial',
-      'email_not_known', 'speech_speed_limit', 'word_understand',
-      'speech_speed_faster', 'name_set_part', 'name_not_changed',
-      'location_not_found', 'birthday_not_heard',
-      'language_not_confirmed', 'word_disabled', 'word_random',
-      'word_speak', 'email_not_confirmed', 'word_limited',
-      'email_not_changed', 'hesitation_disabled', 'name_set_full',
-      'word_female', 'word_full_name', 'language_not_supported',
-      'location_uknown_offline', 'hesitation_enabled',
-      'birthday_confirmed', 'word_slower', 'word_primary',
-      'change_location_tz', 'language_not_changed', 'word_audio',
-      'language_change_confirmation', 'time_format_already_set',
-      'word_timezone', 'units_already_set', 'only_one_language',
-      'email_set', 'email_confirmation', 'language_set',
-      'language_not_heard', 'email_is', 'location_unknown_online',
-      'dialog_mode_already_set', 'time_format_changed',
-      'word_preferred_name', 'word_stt', 'units_changed',
-      'name_not_known', 'word_name', 'email_already_set_same',
-      'also_change_location_tz', 'word_male', 'word_middle_name',
-      'word_metric', 'word_username', 'word_faster', 'email_set_error',
-      'word_enabled', 'transcription_already_set',
-      'speech_speed_normal', 'word_secondary', 'word_text',
-      'word_first_name', 'error_change_username']
+dialog:
+  - 'speech_speed_slower'
+  - 'word_last_name'
+  - 'happy_birthday'
+  - 'email_overwrite'
+  - 'word_location'
+  - 'language_not_recognized'
+  - 'name_is'
+  - 'transcription_changed'
+  - 'language_setting'
+  - 'dialog_mode_changed'
+  - 'location_is'
+  - 'word_imperial'
+  - 'email_not_known'
+  - 'speech_speed_limit'
+  - 'word_understand'
+  - 'speech_speed_faster'
+  - 'name_set_part'
+  - 'name_not_changed'
+  - 'location_not_found'
+  - 'birthday_not_heard'
+  - 'language_not_confirmed'
+  - 'word_disabled'
+  - 'word_random'
+  - 'word_speak'
+  - 'email_not_confirmed'
+  - 'word_limited'
+  - 'email_not_changed'
+  - 'hesitation_disabled'
+  - 'name_set_full'
+  - 'word_female'
+  - 'word_full_name'
+  - 'language_not_supported'
+  - 'location_uknown_offline'
+  - 'hesitation_enabled'
+  - 'birthday_confirmed'
+  - 'word_slower'
+  - 'word_primary'
+  - 'change_location_tz'
+  - 'language_not_changed'
+  - 'word_audio'
+  - 'language_change_confirmation'
+  - 'time_format_already_set'
+  - 'word_timezone'
+  - 'units_already_set'
+  - 'only_one_language'
+  - 'email_set'
+  - 'email_confirmation'
+  - 'language_set'
+  - 'language_not_heard'
+  - 'email_is'
+  - 'location_unknown_online'
+  - 'dialog_mode_already_set'
+  - 'time_format_changed'
+  - 'word_preferred_name'
+  - 'word_stt'
+  - 'units_changed'
+  - 'name_not_known'
+  - 'word_name'
+  - 'email_already_set_same'
+  - 'also_change_location_tz'
+  - 'word_male'
+  - 'word_middle_name'
+  - 'word_metric'
+  - 'word_username'
+  - 'word_faster'
+  - 'email_set_error'
+  - 'word_enabled'
+  - 'transcription_already_set'
+  - 'speech_speed_normal'
+  - 'word_secondary'
+  - 'word_text'
+  - 'word_first_name'
+  - 'error_change_username'
 # regex entities, not necessarily filenames
 regex:
   - 'rx_language'
