@@ -1,2 +1,2 @@
 neon-utils[network]~=1.1
-ovos_utils>=0.0.28a7
+ovos_utils~=0.0.28

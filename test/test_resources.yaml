@@ -1,0 +1,117 @@
+# Specify resources to test here.
+
+# Specify languages to be tested
+languages:
+  - "en-us"
+
+# vocab is lowercase .voc file basenames
+vocab:
+  - 'at'
+  - 'audio'
+  - 'birthday'
+  - 'change'
+  - 'deny'
+  - 'dialog_mode'
+  - 'dot'
+  - 'email'
+  - 'faster'
+  - 'female'
+  - 'first_name'
+  - 'full'
+  - 'full_name'
+  - 'half'
+  - 'hesitation'
+  - 'imperial'
+  - 'language'
+  - 'language_settings'
+  - 'language_stt'
+  - 'language_tts'
+  - 'last_name'
+  - 'limited'
+  - 'location'
+  - 'male'
+  - 'metric'
+  - 'middle_name'
+  - 'my'
+  - 'my_name_is'
+  - 'name'
+  - 'no_secondary_language'
+  - 'normally'
+  - 'permit'
+  - 'preferred_language'
+  - 'preferred_name'
+  - 'random'
+  - 'retention'
+  - 'slower'
+  - 'speak_to_me'
+  - 'tell_me_my'
+  - 'text'
+  - 'time'
+  - 'timezone'
+  - 'units'
+  - 'username'
+
+# dialog is .dialog file basenames (case-sensitive)
+dialog: ['speech_speed_slower', 'word_last_name', 'happy_birthday',
+      'email_overwrite', 'word_location', 'language_not_recognized',
+      'name_is', 'transcription_changed', 'language_setting',
+      'dialog_mode_changed', 'location_is', 'word_imperial',
+      'email_not_known', 'speech_speed_limit', 'word_understand',
+      'speech_speed_faster', 'name_set_part', 'name_not_changed',
+      'location_not_found', 'birthday_not_heard',
+      'language_not_confirmed', 'word_disabled', 'word_random',
+      'word_speak', 'email_not_confirmed', 'word_limited',
+      'email_not_changed', 'hesitation_disabled', 'name_set_full',
+      'word_female', 'word_full_name', 'language_not_supported',
+      'location_uknown_offline', 'hesitation_enabled',
+      'birthday_confirmed', 'word_slower', 'word_primary',
+      'change_location_tz', 'language_not_changed', 'word_audio',
+      'language_change_confirmation', 'time_format_already_set',
+      'word_timezone', 'units_already_set', 'only_one_language',
+      'email_set', 'email_confirmation', 'language_set',
+      'language_not_heard', 'email_is', 'location_unknown_online',
+      'dialog_mode_already_set', 'time_format_changed',
+      'word_preferred_name', 'word_stt', 'units_changed',
+      'name_not_known', 'word_name', 'email_already_set_same',
+      'also_change_location_tz', 'word_male', 'word_middle_name',
+      'word_metric', 'word_username', 'word_faster', 'email_set_error',
+      'word_enabled', 'transcription_already_set',
+      'speech_speed_normal', 'word_secondary', 'word_text',
+      'word_first_name', 'error_change_username']
+# regex entities, not necessarily filenames
+regex:
+  - 'rx_language'
+  - 'rx_name'
+  - 'rx_place'
+  - 'rx_primary'
+  - 'rx_secondary'
+  - 'rx_setting'
+intents:
+  # Padatious intents are the `.intent` file names
+  padatious:
+    - 'where_am_i.intent'
+    - 'language_settings.intent'
+    - 'language_stt.intent'
+  # Adapt intents are the name passed to the constructor
+  adapt:
+    - ChangeUnits
+    - ChangeTime
+    - SetHesitation
+    - Transcription
+    - SpeakSpeed
+    - ChangeLocationTimezone
+    - ChangeDialog
+    - SayMyName
+    - SayMyEmail
+    - SayMyLocation
+    - SetMyBirthday
+    - SetMyEmail
+    - SetMyName
+    - MyNameIs
+    - SayMyLanguageSettings
+    - SetSTTLanguage
+    - SetTTSLanguage
+    - TalkToMe
+    - SetPreferredLanguage
+    - SetMyLanguage
+    - NoSecondaryLanguage
