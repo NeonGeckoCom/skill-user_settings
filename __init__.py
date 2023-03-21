@@ -806,7 +806,7 @@ class UserSettingsSkill(NeonSkill):
             LOG.warning("No language parsed")
             self.speak_dialog("language_not_heard", private=True)
 
-    @intent_handler(IntentBuilder("SetMyLanguage").require("change")
+    @intent_handler(IntentBuilder("SetMyLanguage").optionally("change")
                     .require("my").optionally("preferred").optionally("second")
                     .require("language").optionally("rx_language").build())
     def handle_set_language(self, message: Message):
