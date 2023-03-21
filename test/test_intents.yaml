@@ -77,7 +77,7 @@ en-us:
     - change my timezone to mountain time:
         - timezone
         - rx_place: mountain time
-    - change my location to orchard city colorado
+    - change my location to orchard city colorado:
       - rx_place: orchard city colorado
   ChangeDialog:
     - set my dialog mode to use limited responses:
