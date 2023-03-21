@@ -1256,6 +1256,7 @@ class TestSkill(unittest.TestCase):
         self.assertIsNone(timezone)
 
     def test_get_location_from_spoken_location(self):
+        # Test 'city' case
         address = self.skill._get_location_from_spoken_location("seattle")
         self.assertEqual(address['address']['city'], "Seattle")
         self.assertEqual(address['address']['state'], "Washington")
@@ -1263,6 +1264,7 @@ class TestSkill(unittest.TestCase):
         self.assertIsInstance(address['lat'], str)
         self.assertIsInstance(address['lon'], str)
 
+        # Test international case
         address = self.skill._get_location_from_spoken_location("kyiv",
                                                                 "en-us")
         self.assertEqual(address['address']['city'], "Kyiv")
@@ -1270,10 +1272,20 @@ class TestSkill(unittest.TestCase):
         self.assertIsInstance(address['lat'], str)
         self.assertIsInstance(address['lon'], str)
 
+        # Test 'town' case
         address = self.skill._get_location_from_spoken_location(
             "kirkland washington")
         self.assertEqual(address['address']['city'], "Kirkland")
         self.assertEqual(address['address']['state'], "Washington")
+        self.assertEqual(address['address']['country'], "United States")
+        self.assertIsInstance(address['lat'], str)
+        self.assertIsInstance(address['lon'], str)
+
+        # Test 'village' case
+        address = self.skill._get_location_from_spoken_location(
+            "orchard city colorado")
+        self.assertEqual(address["address"]["city"], "Orchard City")
+        self.assertEqual(address["address"]["state"], "Colorado")
         self.assertEqual(address['address']['country'], "United States")
         self.assertIsInstance(address['lat'], str)
         self.assertIsInstance(address['lon'], str)
