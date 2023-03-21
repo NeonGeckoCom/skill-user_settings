@@ -188,3 +188,6 @@ en-us:
     - stop replying in two languages
   who_am_i.intent:
     - who am I
+  SayMyBirthday:
+    - tell me my birthday
+    - do you know when my birthday is

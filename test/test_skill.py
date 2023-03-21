@@ -695,6 +695,37 @@ class TestSkill(unittest.TestCase):
                                                    {"birthday": "September 9"},
                                                    private=True)
 
+    def test_handle_say_my_birthday(self):
+        test_profile = self.user_config
+        test_profile["user"]["username"] = "test_user"
+
+        # Not Set
+        test_message = Message("test", {"utterance": "my birthday is today"},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        self.skill.handle_say_my_birthday(test_message)
+        self.skill.speak_dialog.assert_called_with("birthday_not_known",
+                                                   private=True)
+
+        # Set
+        test_profile["user"]["dob"] = "2000/01/01"
+        test_message = Message("test", {"utterance": "my birthday is today"},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        self.skill.handle_say_my_birthday(test_message)
+        self.skill.speak_dialog.assert_any_call("birthday_is",
+                                                {"birthday": "January 1"},
+                                                private=True)
+
+        # Today
+        now_time = datetime.now(gettz(test_profile['location']['tz']))
+        test_profile["user"]["dob"] = now_time.strftime("%Y/%m/%d")
+        test_message = Message("test", {"utterance": "my birthday is today"},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        self.skill.handle_say_my_birthday(test_message)
+        self.skill.speak_dialog.assert_any_call("happy_birthday", private=True)
+
     def test_handle_set_my_email(self):
         real_ask_yesno = self.skill.ask_yesno
         self.skill.ask_yesno = Mock(return_value="no")
