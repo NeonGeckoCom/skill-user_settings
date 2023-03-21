@@ -170,12 +170,11 @@ en-us:
         - rx_language: japanese
     - speak to me in canadian french:
         - rx_language: canadian french
-  SetPreferredLanguage:
-    - set my preferred language to italian:
-        - rx_setting: italian
-    - my preferred language is ukrainian:
-        - rx_setting: ukrainian
   SetMyLanguage:
+    - my preferred language is ukrainian:
+        - language
+        - preferred
+        - rx_setting: ukrainian
     - change my language to korean:
         - language
         - rx_language: korean
