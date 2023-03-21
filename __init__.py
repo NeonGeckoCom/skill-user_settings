@@ -328,6 +328,7 @@ class UserSettingsSkill(NeonSkill):
                                "location": f"UTC {utc_offset}"},
                               private=True)
         if do_location:
+            LOG.info(f"Update location: {resolved_place}")
             self.update_profile({'location': {
                 'city': resolved_place['address']['city'],
                 'state': resolved_place['address'].get('state'),
