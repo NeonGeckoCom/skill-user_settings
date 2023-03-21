@@ -177,9 +177,19 @@ en-us:
         - rx_setting: ukrainian
   SetMyLanguage:
     - change my language to korean:
+        - language
         - rx_language: korean
     - update my language setting to slovenian:
+        - language
         - rx_language: slovenian
+    - set my preferred language to italian:
+        - language
+        - preferred
+        - rx_setting: italian
+    - change my secondary language to ukrainian:
+        - language
+        - second
+        - rx_setting: ukrainian
   NoSecondaryLanguage:
     - no secondary language
     - just use my primary language
