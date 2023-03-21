@@ -806,12 +806,9 @@ class UserSettingsSkill(NeonSkill):
             LOG.warning("No language parsed")
             self.speak_dialog("language_not_heard", private=True)
 
-    @intent_handler(IntentBuilder("SetPreferredLanguage").require("my")
-                    .require("preferred_language").require("rx_setting")
-                    .build())
-    @intent_handler(IntentBuilder("SetMyLanguage").require("change")
-                    .require("my").require("language")
-                    .optionally("rx_language").build())
+    @intent_handler(IntentBuilder("SetMyLanguage").optionally("change")
+                    .require("my").optionally("preferred").optionally("second")
+                    .require("language").optionally("rx_language").build())
     def handle_set_language(self, message: Message):
         """
         Handle a user request to change languages. Checks for improper parsing
@@ -820,13 +817,17 @@ class UserSettingsSkill(NeonSkill):
         """
         utterance = message.data.get("utterance")
         LOG.info(f"language={message.data.get('language')}")
-        LOG.info(f"preferred_language={message.data.get('preferred_language')}")
+        LOG.info(f"preferred={message.data.get('preferred')}|"
+                 f"second={message.data.get('second')}")
         LOG.info(f"Ambiguous language change request: {utterance}")
         if self.voc_match(utterance, "language_stt"):
             LOG.warning("STT Intent not matched")
             self.handle_set_stt_language(message)
         elif self.voc_match(utterance, "language_tts"):
             LOG.warning("TTS Intent not matched")
+            self.handle_set_tts_language(message)
+        elif message.data.get('second'):
+            # TODO: This should also set second STT language if applicable
             self.handle_set_tts_language(message)
         else:
             LOG.info("General language change request, handle STT+TTS")

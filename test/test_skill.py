@@ -1174,6 +1174,14 @@ class TestSkill(unittest.TestCase):
         self.skill.handle_set_stt_language.assert_called_with(test_message)
         self.skill.handle_set_tts_language.assert_called_with(test_message)
 
+        # Second language request
+        second_lang_message = Message(
+            "test", {"utterance": "change my secondary language to ukrainian",
+                     "rx_language": "ukrainian", "second": "secondary"})
+        self.skill.handle_set_language(second_lang_message)
+        self.skill.handle_set_tts_language.assert_called_with(
+            second_lang_message)
+
         # Unspecified STT not changed
         self.skill.handle_set_stt_language.reset_mock()
         test_profile = self.user_config
