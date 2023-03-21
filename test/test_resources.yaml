@@ -162,6 +162,5 @@ intents:
     - SetSTTLanguage
     - SetTTSLanguage
     - TalkToMe
-    - SetPreferredLanguage
     - SetMyLanguage
     - NoSecondaryLanguage
