@@ -369,6 +369,7 @@ class UserSettingsSkill(NeonSkill):
 
     @intent_handler(IntentBuilder("SayMyName").require("tell_me_my")
                     .require("name").build())
+    @intent_file_handler("who_am_i.intent")
     def handle_say_my_name(self, message: Message):
         """
         Handle a request to read back a user's name

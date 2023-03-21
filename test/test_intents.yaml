@@ -184,3 +184,5 @@ en-us:
     - respond in my primary language only
     - stop responding in two languages
     - stop replying in two languages
+  who_am_i.intent:
+    - who am I
