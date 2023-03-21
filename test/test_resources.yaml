@@ -54,7 +54,7 @@ vocab:
 # dialog is .dialog file basenames (case-sensitive)
 dialog:
   - 'birthday_is'
-  - 'birthday_not_knon'
+  - 'birthday_not_known'
   - 'speech_speed_slower'
   - 'word_last_name'
   - 'happy_birthday'

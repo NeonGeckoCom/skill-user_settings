@@ -190,6 +190,7 @@ en-us:
     - who am I
   SayMyBirthday:
     - tell me my birthday
-    - do you know when my birthday is
+    - what is my birthday
   when_is_my_birthday.intent:
     - when is my birthday
+    - do you know when my birthday is
