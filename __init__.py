@@ -476,6 +476,7 @@ class UserSettingsSkill(NeonSkill):
 
     @intent_handler(IntentBuilder("SayMyBirthday").require("tell_me_my")
                     .require("birthday").build())
+    @intent_file_handler("when_is_my_birthday.intent")
     def handle_say_my_birthday(self, message: Message):
         """
         Handle a request to read back the user's birthday

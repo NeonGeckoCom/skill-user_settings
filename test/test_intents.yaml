@@ -191,3 +191,5 @@ en-us:
   SayMyBirthday:
     - tell me my birthday
     - do you know when my birthday is
+  when_is_my_birthday.intent:
+    - when is my birthday

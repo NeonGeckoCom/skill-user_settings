@@ -143,6 +143,7 @@ intents:
     - 'language_settings.intent'
     - 'language_stt.intent'
     - 'who_am_i.intent'
+    - 'when_is_my_birthday.intent'
   # Adapt intents are the name passed to the constructor
   adapt:
     - ChangeUnits
