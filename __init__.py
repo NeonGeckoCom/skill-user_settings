@@ -474,6 +474,32 @@ class UserSettingsSkill(NeonSkill):
             self.speak_dialog("location_is", {"location": friendly_location},
                               private=True)
 
+    @intent_handler(IntentBuilder("SayMyBirthday").require("tell_me_my")
+                    .require("birthday").build())
+    @intent_file_handler("when_is_my_birthday.intent")
+    def handle_say_my_birthday(self, message: Message):
+        """
+        Handle a request to read back the user's birthday
+        :param message: Message associated with request
+        """
+        if not self.neon_in_request(message):
+            return
+        birthday_str = get_user_prefs(message)["user"]["dob"]
+        if not birthday_str or birthday_str == "YYYY/MM/DD":
+            self.speak_dialog("birthday_not_known", private=True)
+            return
+        user_tz = gettz(self.location_timezone) if self.location_timezone else \
+            default_timezone()
+        now_time = datetime.now(user_tz)
+        birthday_dt = datetime.strptime(birthday_str, "%Y/%m/%d")
+        speakable_birthday = birthday_dt.strftime("%B %-d")
+        self.speak_dialog("birthday_is",
+                          {"birthday": speakable_birthday}, private=True)
+
+        if birthday_dt.month == now_time.month and \
+                birthday_dt.day == now_time.day:
+            self.speak_dialog("happy_birthday", private=True)
+
     @intent_handler(IntentBuilder("SetMyBirthday").require("my")
                     .require("birthday").build())
     def handle_set_my_birthday(self, message: Message):
