@@ -174,7 +174,7 @@ en-us:
     - my preferred language is ukrainian:
         - language
         - preferred
-        - rx_setting: ukrainian
+        - rx_language: ukrainian
     - change my language to korean:
         - language
         - rx_language: korean
@@ -184,11 +184,11 @@ en-us:
     - set my preferred language to italian:
         - language
         - preferred
-        - rx_setting: italian
+        - rx_language: italian
     - change my secondary language to ukrainian:
         - language
         - second
-        - rx_setting: ukrainian
+        - rx_language: ukrainian
   NoSecondaryLanguage:
     - no secondary language
     - just use my primary language
