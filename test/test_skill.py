@@ -1429,6 +1429,12 @@ class TestSkill(unittest.TestCase):
         with self.assertRaises(UnsupportedLanguageError):
             self.skill._get_lang_code_and_name("nothing")
 
+    def test_spoken_email(self):
+        self.assertEqual(self.skill._spoken_email("test@neon.ai"),
+                         "test at neon dot ai")
+        self.assertEqual(self.skill._spoken_email("my.email@domain.com"),
+                         "my dot email at domain dot com")
+
 
 if __name__ == '__main__':
     unittest.main()

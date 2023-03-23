@@ -444,7 +444,8 @@ class UserSettingsSkill(NeonSkill):
             # TODO: Use get_response to ask for the user's email
             self.speak_dialog("email_not_known", private=True)
         else:
-            self.speak_dialog("email_is", {"email": email_address},
+            self.speak_dialog("email_is",
+                              {"email": self._spoken_email(email_address)},
                               private=True)
 
     @intent_handler(IntentBuilder("SayMyLocation").require("tell_me_my")
@@ -558,36 +559,42 @@ class UserSettingsSkill(NeonSkill):
 
         if '@' not in email_addr or '.' not in email_addr.split('@')[1]:
             self.speak_dialog("email_set_error", private=True)
-            email_addr = self.get_gui_input("Email Address", "test@neon.ai")
-            # TODO: Translated title
+            email_addr = self.get_gui_input(self.translate("word_email_title"),
+                                            "test@neon.ai")
 
         current_email = get_user_prefs(message)["user"]["email"]
         if current_email and email_addr == current_email:
             self.speak_dialog("email_already_set_same",
-                              {"email": current_email}, private=True)
+                              {"email": self._spoken_email(current_email)},
+                              private=True)
             return
         if current_email:
-            if self.ask_yesno("email_overwrite", {"old": current_email,
-                                                  "new": email_addr}) == "yes":
+            if self.ask_yesno("email_overwrite",
+                              {"old": self._spoken_email(current_email),
+                               "new": self._spoken_email(email_addr)}) == "yes":
                 self.update_profile({"user": {"email": email_addr}})
-                self.speak_dialog("email_set", {"email": email_addr},
+                self.speak_dialog("email_set",
+                                  {"email": self._spoken_email(email_addr)},
                                   private=True)
             else:
                 self.speak_dialog("email_not_changed",
-                                  {"email": current_email}, private=True)
+                                  {"email": self._spoken_email(current_email)},
+                                  private=True)
             return
         if self.ask_yesno("email_confirmation",
-                          {"email": email_addr}) == "yes":
+                          {"email": self._spoken_email(email_addr)}) == "yes":
             self.update_profile({"user": {"email": email_addr}})
-            self.speak_dialog("email_set", {"email": email_addr},
+            self.speak_dialog("email_set",
+                              {"email": self._spoken_email(email_addr)},
                               private=True)
         else:
             self.speak_dialog("email_not_confirmed", private=True)
-            email_addr = self.get_gui_input("Email Address", "test@neon.ai")
-            # TODO: Translated title
+            email_addr = self.get_gui_input(self.translate("word_email_title"),
+                                            "test@neon.ai")
             if email_addr:
                 self.update_profile({"user": {"email": email_addr}})
-                self.speak_dialog("email_set", {"email": email_addr},
+                self.speak_dialog("email_set",
+                                  {"email": self._spoken_email(email_addr)},
                                   private=True)
             else:
                 LOG.info("User Cancelled email input")
@@ -1025,6 +1032,13 @@ class UserSettingsSkill(NeonSkill):
             return "female"
         LOG.info(f"no gender in request: {request}")
         return None
+
+    def _spoken_email(self, email_addr: str):
+        """
+        Get a pronouncable email address string
+        """
+        return email_addr.replace('.', f' {self.translate("word_dot")} ')\
+            .replace('@', f' {self.translate("word_at")} ')
 
     @staticmethod
     def _get_name_parts(name: str, user_profile: dict) -> dict:
