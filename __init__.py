@@ -609,12 +609,14 @@ class UserSettingsSkill(NeonSkill):
         def _on_close(message):
             response_event.set()
 
-        self.add_event("input.box.response", _on_response, once=True)
-        self.add_event("input.box.close", _on_close, once=True)
+        resp_message = self.gui.build_message_type('input.box.response')
+        close_message = self.gui.build_message_type('input.box.close')
+        self.add_event(resp_message, _on_response, once=True)
+        self.add_event(close_message, _on_close, once=True)
         response_event.wait()
         self.remove_input_box()
-        self.remove_event("input.box.response")
-        self.remove_event("input.box.close")
+        self.remove_event(resp_message)
+        self.remove_event(close_message)
         return gui_response
 
     # TODO: Update to import from ovos-utils
