@@ -558,7 +558,8 @@ class UserSettingsSkill(NeonSkill):
 
         if '@' not in email_addr or '.' not in email_addr.split('@')[1]:
             self.speak_dialog("email_set_error", private=True)
-            return
+            email_addr = self.get_gui_input("Email Address", "test@neon.ai")
+            # TODO: Translated title
 
         current_email = get_user_prefs(message)["user"]["email"]
         if current_email and email_addr == current_email:
@@ -582,7 +583,8 @@ class UserSettingsSkill(NeonSkill):
                               private=True)
         else:
             self.speak_dialog("email_not_confirmed", private=True)
-            email_addr = self.get_gui_input("Email Address", email_addr)
+            email_addr = self.get_gui_input("Email Address", "test@neon.ai")
+            # TODO: Translated title
             if email_addr:
                 self.update_profile({"user": {"email": email_addr}})
                 self.speak_dialog("email_set", {"email": email_addr},
@@ -634,7 +636,6 @@ class UserSettingsSkill(NeonSkill):
 
         self.gui.show_page("SYSTEM_InputBox.qml", override_idle,
                            override_animations)
-        self._gui_response.wait()
 
     # TODO: Update to import from ovos-utils
     def remove_input_box(self):
