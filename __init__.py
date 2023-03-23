@@ -582,6 +582,67 @@ class UserSettingsSkill(NeonSkill):
                               private=True)
         else:
             self.speak_dialog("email_not_confirmed", private=True)
+            email_addr = self.get_gui_input("Email Address", email_addr)
+            if email_addr:
+                self.update_profile({"user": {"email": email_addr}})
+                self.speak_dialog("email_set", {"email": email_addr},
+                                  private=True)
+            else:
+                LOG.info("User Cancelled email input")
+                # TODO: Speak confirmation
+
+    def get_gui_input(self, title=None, placeholder=None,
+                      confirm_text=None, exit_text=None) -> Optional[str]:
+        gui_response = None
+        response_event = Event()
+        response_event.clear()
+        self.show_input_box(title, placeholder, confirm_text, exit_text,
+                            True, True)
+
+        def _on_response(message):
+            nonlocal gui_response
+            gui_response = message.data.get("text")
+            response_event.set()
+
+        def _on_close(message):
+            response_event.set()
+
+        self.add_event("input.box.response", _on_response, once=True)
+        self.add_event("input.box.close", _on_close, once=True)
+        response_event.wait()
+        self.remove_input_box()
+        self.remove_event("input.box.response")
+        self.remove_event("input.box.close")
+        return gui_response
+
+    # TODO: Update to import from ovos-utils
+    def show_input_box(self, title=None, placeholder=None,
+                       confirm_text=None, exit_text=None,
+                       override_idle=None, override_animations=None):
+        self.gui["title"] = title
+        self.gui["placeholder"] = placeholder
+        self.gui["skill_id_handler"] = self.skill_id
+        if not confirm_text:
+            self.gui["confirm_text"] = "Confirm"
+        else:
+            self.gui["confirm_text"] = confirm_text
+
+        if not exit_text:
+            self.gui["exit_text"] = "Exit"
+        else:
+            self.gui["exit_text"] = exit_text
+
+        self.gui.show_page("SYSTEM_InputBox.qml", override_idle,
+                           override_animations)
+        self._gui_response.wait()
+
+    # TODO: Update to import from ovos-utils
+    def remove_input_box(self):
+        LOG.info(f"GUI pages length {len(self.gui.pages)}")
+        if len(self.gui.pages) > 1:
+            self.gui.remove_page("SYSTEM_InputBox.qml")
+        else:
+            self.gui.release()
 
     @intent_handler(IntentBuilder("SetMyName").optionally("change")
                     .require("my").require("name").require("rx_setting")
