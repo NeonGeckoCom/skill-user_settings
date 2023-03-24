@@ -629,9 +629,8 @@ class TestSkill(unittest.TestCase):
         test_message.context["user_profiles"][0]["user"]["email"] = \
             "test@neon.ai"
         self.skill.handle_say_my_email(test_message)
-        self.skill.speak_dialog.assert_called_with("email_is",
-                                                   {"email": "test@neon.ai"},
-                                                   private=True)
+        self.skill.speak_dialog.assert_called_with(
+            "email_is", {"email": "test at neon dot ai"}, private=True)
 
     @mock.patch('neon_utils.net_utils.check_online')
     def test_handle_say_my_location(self, check_online):
