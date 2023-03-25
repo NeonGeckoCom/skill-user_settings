@@ -678,6 +678,8 @@ class TestSkill(unittest.TestCase):
     def test_handle_set_my_birthday(self):
         test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
+        test_profile['location']['tz'] = 'America/Los_Angeles'
+
         test_message = Message("test", {"utterance": "my birthday is today"},
                                {"username": "test_user",
                                 "user_profiles": [test_profile]})
@@ -698,7 +700,7 @@ class TestSkill(unittest.TestCase):
     def test_handle_say_my_birthday(self):
         test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
-
+        test_profile['location']['tz'] = 'America/Los_Angeles'
         # Not Set
         test_message = Message("test", {"utterance": "my birthday is today"},
                                {"username": "test_user",
