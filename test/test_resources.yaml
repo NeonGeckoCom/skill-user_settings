@@ -38,7 +38,8 @@ vocab:
   - 'no_secondary_language'
   - 'normally'
   - 'permit'
-  - 'preferred_language'
+  - 'preferred'
+  - 'second'
   - 'preferred_name'
   - 'random'
   - 'retention'
@@ -53,6 +54,8 @@ vocab:
 
 # dialog is .dialog file basenames (case-sensitive)
 dialog:
+  - 'birthday_is'
+  - 'birthday_not_known'
   - 'speech_speed_slower'
   - 'word_last_name'
   - 'happy_birthday'
@@ -140,6 +143,8 @@ intents:
     - 'where_am_i.intent'
     - 'language_settings.intent'
     - 'language_stt.intent'
+    - 'who_am_i.intent'
+    - 'when_is_my_birthday.intent'
   # Adapt intents are the name passed to the constructor
   adapt:
     - ChangeUnits
@@ -160,6 +165,6 @@ intents:
     - SetSTTLanguage
     - SetTTSLanguage
     - TalkToMe
-    - SetPreferredLanguage
     - SetMyLanguage
     - NoSecondaryLanguage
+    - SayMyBirthday

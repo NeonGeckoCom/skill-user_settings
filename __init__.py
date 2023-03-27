@@ -328,6 +328,7 @@ class UserSettingsSkill(NeonSkill):
                                "location": f"UTC {utc_offset}"},
                               private=True)
         if do_location:
+            LOG.info(f"Update location: {resolved_place}")
             self.update_profile({'location': {
                 'city': resolved_place['address']['city'],
                 'state': resolved_place['address'].get('state'),
@@ -369,6 +370,7 @@ class UserSettingsSkill(NeonSkill):
 
     @intent_handler(IntentBuilder("SayMyName").require("tell_me_my")
                     .require("name").build())
+    @intent_file_handler("who_am_i.intent")
     def handle_say_my_name(self, message: Message):
         """
         Handle a request to read back a user's name
@@ -471,6 +473,32 @@ class UserSettingsSkill(NeonSkill):
                                             location_prefs["country"])])
             self.speak_dialog("location_is", {"location": friendly_location},
                               private=True)
+
+    @intent_handler(IntentBuilder("SayMyBirthday").require("tell_me_my")
+                    .require("birthday").build())
+    @intent_file_handler("when_is_my_birthday.intent")
+    def handle_say_my_birthday(self, message: Message):
+        """
+        Handle a request to read back the user's birthday
+        :param message: Message associated with request
+        """
+        if not self.neon_in_request(message):
+            return
+        birthday_str = get_user_prefs(message)["user"]["dob"]
+        if not birthday_str or birthday_str == "YYYY/MM/DD":
+            self.speak_dialog("birthday_not_known", private=True)
+            return
+        user_tz = gettz(self.location_timezone) if self.location_timezone else \
+            default_timezone()
+        now_time = datetime.now(user_tz)
+        birthday_dt = datetime.strptime(birthday_str, "%Y/%m/%d")
+        speakable_birthday = birthday_dt.strftime("%B %-d")
+        self.speak_dialog("birthday_is",
+                          {"birthday": speakable_birthday}, private=True)
+
+        if birthday_dt.month == now_time.month and \
+                birthday_dt.day == now_time.day:
+            self.speak_dialog("happy_birthday", private=True)
 
     @intent_handler(IntentBuilder("SetMyBirthday").require("my")
                     .require("birthday").build())
@@ -804,12 +832,9 @@ class UserSettingsSkill(NeonSkill):
             LOG.warning("No language parsed")
             self.speak_dialog("language_not_heard", private=True)
 
-    @intent_handler(IntentBuilder("SetPreferredLanguage").require("my")
-                    .require("preferred_language").require("rx_setting")
-                    .build())
-    @intent_handler(IntentBuilder("SetMyLanguage").require("change")
-                    .require("my").require("language")
-                    .optionally("rx_language").build())
+    @intent_handler(IntentBuilder("SetMyLanguage").optionally("change")
+                    .require("my").optionally("preferred").optionally("second")
+                    .require("language").optionally("rx_language").build())
     def handle_set_language(self, message: Message):
         """
         Handle a user request to change languages. Checks for improper parsing
@@ -818,13 +843,17 @@ class UserSettingsSkill(NeonSkill):
         """
         utterance = message.data.get("utterance")
         LOG.info(f"language={message.data.get('language')}")
-        LOG.info(f"preferred_language={message.data.get('preferred_language')}")
+        LOG.info(f"preferred={message.data.get('preferred')}|"
+                 f"second={message.data.get('second')}")
         LOG.info(f"Ambiguous language change request: {utterance}")
         if self.voc_match(utterance, "language_stt"):
             LOG.warning("STT Intent not matched")
             self.handle_set_stt_language(message)
         elif self.voc_match(utterance, "language_tts"):
             LOG.warning("TTS Intent not matched")
+            self.handle_set_tts_language(message)
+        elif message.data.get('second'):
+            # TODO: This should also set second STT language if applicable
             self.handle_set_tts_language(message)
         else:
             LOG.info("General language change request, handle STT+TTS")
@@ -991,9 +1020,9 @@ class UserSettingsSkill(NeonSkill):
             if not place or not place.get("address"):
                 LOG.warning(f"Could not locate: {location}")
                 return None
-            if not place['address'].get("city") and \
-                    place['address'].get("town"):
-                place["address"]["city"] = place["address"]["town"]
+            if not place['address'].get("city"):
+                place["address"]["city"] = place["address"].get("town") or \
+                                           place["address"].get("village")
         except AttributeError:
             LOG.warning(f"Could not locate: {location}")
             return None

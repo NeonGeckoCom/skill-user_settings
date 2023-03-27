@@ -77,6 +77,8 @@ en-us:
     - change my timezone to mountain time:
         - timezone
         - rx_place: mountain time
+    - change my location to orchard city colorado:
+      - rx_place: orchard city colorado
   ChangeDialog:
     - set my dialog mode to use limited responses:
         - limited
@@ -168,19 +170,36 @@ en-us:
         - rx_language: japanese
     - speak to me in canadian french:
         - rx_language: canadian french
-  SetPreferredLanguage:
-    - set my preferred language to italian:
-        - rx_setting: italian
-    - my preferred language is ukrainian:
-        - rx_setting: ukrainian
   SetMyLanguage:
+    - my preferred language is ukrainian:
+        - language
+        - preferred
+        - rx_language: ukrainian
     - change my language to korean:
+        - language
         - rx_language: korean
     - update my language setting to slovenian:
+        - language
         - rx_language: slovenian
+    - set my preferred language to italian:
+        - language
+        - preferred
+        - rx_language: italian
+    - change my secondary language to ukrainian:
+        - language
+        - second
+        - rx_language: ukrainian
   NoSecondaryLanguage:
     - no secondary language
     - just use my primary language
     - respond in my primary language only
     - stop responding in two languages
     - stop replying in two languages
+  who_am_i.intent:
+    - who am I
+  SayMyBirthday:
+    - tell me my birthday
+    - what is my birthday
+  when_is_my_birthday.intent:
+    - when is my birthday
+    - do you know when my birthday is

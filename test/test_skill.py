@@ -678,6 +678,8 @@ class TestSkill(unittest.TestCase):
     def test_handle_set_my_birthday(self):
         test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
+        test_profile['location']['tz'] = 'America/Los_Angeles'
+
         test_message = Message("test", {"utterance": "my birthday is today"},
                                {"username": "test_user",
                                 "user_profiles": [test_profile]})
@@ -694,6 +696,37 @@ class TestSkill(unittest.TestCase):
         self.skill.speak_dialog.assert_called_with("birthday_confirmed",
                                                    {"birthday": "September 9"},
                                                    private=True)
+
+    def test_handle_say_my_birthday(self):
+        test_profile = self.user_config
+        test_profile["user"]["username"] = "test_user"
+        test_profile['location']['tz'] = 'America/Los_Angeles'
+        # Not Set
+        test_message = Message("test", {"utterance": "my birthday is today"},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        self.skill.handle_say_my_birthday(test_message)
+        self.skill.speak_dialog.assert_called_with("birthday_not_known",
+                                                   private=True)
+
+        # Set
+        test_profile["user"]["dob"] = "2000/01/01"
+        test_message = Message("test", {"utterance": "my birthday is today"},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        self.skill.handle_say_my_birthday(test_message)
+        self.skill.speak_dialog.assert_any_call("birthday_is",
+                                                {"birthday": "January 1"},
+                                                private=True)
+
+        # Today
+        now_time = datetime.now(gettz(test_profile['location']['tz']))
+        test_profile["user"]["dob"] = now_time.strftime("%Y/%m/%d")
+        test_message = Message("test", {"utterance": "my birthday is today"},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        self.skill.handle_say_my_birthday(test_message)
+        self.skill.speak_dialog.assert_any_call("happy_birthday", private=True)
 
     def test_handle_set_my_email(self):
         real_ask_yesno = self.skill.ask_yesno
@@ -1174,6 +1207,14 @@ class TestSkill(unittest.TestCase):
         self.skill.handle_set_stt_language.assert_called_with(test_message)
         self.skill.handle_set_tts_language.assert_called_with(test_message)
 
+        # Second language request
+        second_lang_message = Message(
+            "test", {"utterance": "change my secondary language to ukrainian",
+                     "rx_language": "ukrainian", "second": "secondary"})
+        self.skill.handle_set_language(second_lang_message)
+        self.skill.handle_set_tts_language.assert_called_with(
+            second_lang_message)
+
         # Unspecified STT not changed
         self.skill.handle_set_stt_language.reset_mock()
         test_profile = self.user_config
@@ -1256,6 +1297,7 @@ class TestSkill(unittest.TestCase):
         self.assertIsNone(timezone)
 
     def test_get_location_from_spoken_location(self):
+        # Test 'city' case
         address = self.skill._get_location_from_spoken_location("seattle")
         self.assertEqual(address['address']['city'], "Seattle")
         self.assertEqual(address['address']['state'], "Washington")
@@ -1263,6 +1305,7 @@ class TestSkill(unittest.TestCase):
         self.assertIsInstance(address['lat'], str)
         self.assertIsInstance(address['lon'], str)
 
+        # Test international case
         address = self.skill._get_location_from_spoken_location("kyiv",
                                                                 "en-us")
         self.assertEqual(address['address']['city'], "Kyiv")
@@ -1270,10 +1313,20 @@ class TestSkill(unittest.TestCase):
         self.assertIsInstance(address['lat'], str)
         self.assertIsInstance(address['lon'], str)
 
+        # Test 'town' case
         address = self.skill._get_location_from_spoken_location(
             "kirkland washington")
         self.assertEqual(address['address']['city'], "Kirkland")
         self.assertEqual(address['address']['state'], "Washington")
+        self.assertEqual(address['address']['country'], "United States")
+        self.assertIsInstance(address['lat'], str)
+        self.assertIsInstance(address['lon'], str)
+
+        # Test 'village' case
+        address = self.skill._get_location_from_spoken_location(
+            "orchard city colorado")
+        self.assertEqual(address["address"]["city"], "Orchard City")
+        self.assertEqual(address["address"]["state"], "Colorado")
         self.assertEqual(address['address']['country'], "United States")
         self.assertIsInstance(address['lat'], str)
         self.assertIsInstance(address['lon'], str)

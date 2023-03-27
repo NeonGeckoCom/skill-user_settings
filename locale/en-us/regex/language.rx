@@ -1,1 +1,1 @@
-(speak|in|to) (?P<rx_language>.*)
+(speak|in|to|is) (?P<rx_language>.*)
