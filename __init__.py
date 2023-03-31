@@ -609,8 +609,8 @@ class UserSettingsSkill(NeonSkill):
         gui_response = None
         response_event = Event()
         response_event.clear()
-        self.show_input_box(title, placeholder, confirm_text, exit_text,
-                            True, True)
+        self.gui.show_input_box(title, placeholder, confirm_text, exit_text,
+                                True, True)
 
         def _on_response(message):
             nonlocal gui_response
@@ -625,30 +625,10 @@ class UserSettingsSkill(NeonSkill):
         self.add_event(resp_message, _on_response, once=True)
         self.add_event(close_message, _on_close, once=True)
         response_event.wait()
-        self.remove_input_box()
+        self.gui.remove_input_box()
         self.remove_event(resp_message)
         self.remove_event(close_message)
         return gui_response
-
-    # TODO: Update to import from ovos-utils
-    def show_input_box(self, title=None, placeholder=None,
-                       confirm_text=None, exit_text=None,
-                       override_idle=None, override_animations=None):
-        self.gui["title"] = title
-        self.gui["placeholder"] = placeholder
-        self.gui["skill_id_handler"] = self.skill_id
-        if not confirm_text:
-            self.gui["confirm_text"] = "Confirm"
-        else:
-            self.gui["confirm_text"] = confirm_text
-
-        if not exit_text:
-            self.gui["exit_text"] = "Exit"
-        else:
-            self.gui["exit_text"] = exit_text
-
-        self.gui.show_page("SYSTEM_InputBox.qml", override_idle,
-                           override_animations)
 
     # TODO: Update to import from ovos-utils
     def remove_input_box(self):
