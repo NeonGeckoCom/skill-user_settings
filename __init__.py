@@ -39,6 +39,7 @@ from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
 from neon_utils.user_utils import get_user_prefs
 from neon_utils.language_utils import get_supported_languages
+from neon_utils.parse_utils import validate_email
 from lingua_franca.parse import extract_langcode, get_full_lang_code
 from lingua_franca.format import pronounce_lang
 from lingua_franca.internal import UnsupportedLanguageError
@@ -557,10 +558,13 @@ class UserSettingsSkill(NeonSkill):
         email_addr = "".join(email_words)
         LOG.info(email_addr)
 
-        if '@' not in email_addr or '.' not in email_addr.split('@')[1]:
+        if not validate_email(email_addr):
             self.speak_dialog("email_set_error", private=True)
             email_addr = self.get_gui_input(self.translate("word_email_title"),
                                             "test@neon.ai")
+            if not validate_email(email_addr):
+                LOG.warning(f"Invalid email_addr entered: {email_addr}")
+                return
 
         current_email = get_user_prefs(message)["user"]["email"]
         if current_email and email_addr == current_email:

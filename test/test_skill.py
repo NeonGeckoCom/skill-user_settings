@@ -728,6 +728,8 @@ class TestSkill(unittest.TestCase):
         self.skill.speak_dialog.assert_any_call("happy_birthday", private=True)
 
     def test_handle_set_my_email(self):
+        real_get_gui_input = self.skill.get_gui_input
+        self.skill.get_gui_input = Mock()
         real_ask_yesno = self.skill.ask_yesno
         self.skill.ask_yesno = Mock(return_value="no")
         test_profile = self.user_config
@@ -811,6 +813,7 @@ class TestSkill(unittest.TestCase):
                          ["user"]["email"], "demo@neon.ai")
 
         self.skill.ask_yesno = real_ask_yesno
+        self.skill.get_gui_input = real_get_gui_input
 
     def test_handle_set_my_name(self):
         test_profile = self.user_config
