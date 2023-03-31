@@ -741,7 +741,7 @@ class TestSkill(unittest.TestCase):
         def _check_not_confirmed(msg):
             self.skill.handle_set_my_email(msg)
             self.skill.ask_yesno.assert_called_once_with(
-                "email_confirmation", {"email": "test@neon.ai"})
+                "email_confirmation", {"email": "test at neon dot ai"})
             self.skill.speak_dialog.assert_called_once_with(
                 "email_not_confirmed", private=True)
             self.skill.ask_yesno.reset_mock()
@@ -776,16 +776,16 @@ class TestSkill(unittest.TestCase):
         self.skill.ask_yesno = Mock(return_value="yes")
         self.skill.handle_set_my_email(test_message)
         self.skill.ask_yesno.assert_called_with("email_confirmation",
-                                                {"email": "test@neon.ai"})
+                                                {"email": "test at neon dot ai"})
         self.skill.speak_dialog.assert_called_with("email_set",
-                                                   {"email": "test@neon.ai"},
+                                                   {"email": "test at neon dot ai"},
                                                    private=True)
         self.assertEqual(test_message.context["user_profiles"][0]
                          ["user"]["email"], "test@neon.ai")
         # Set Email No Change
         self.skill.handle_set_my_email(test_message)
         self.skill.speak_dialog.assert_called_with("email_already_set_same",
-                                                   {"email": "test@neon.ai"},
+                                                   {"email": "test at neon dot ai"},
                                                    private=True)
         self.assertEqual(test_message.context["user_profiles"][0]
                          ["user"]["email"], "test@neon.ai")
@@ -795,19 +795,19 @@ class TestSkill(unittest.TestCase):
         test_message.data["rx_setting"] = "demo at neon dot ai"
         self.skill.handle_set_my_email(test_message)
         self.skill.ask_yesno.assert_called_with("email_overwrite",
-                                                {"old": "test@neon.ai",
-                                                 "new": "demo@neon.ai"})
+                                                {"old": "test at neon dot ai",
+                                                 "new": "demo at neon dot ai"})
         self.skill.speak_dialog.assert_called_with("email_not_changed",
-                                                   {"email": "test@neon.ai"},
+                                                   {"email": "test at neon dot ai"},
                                                    private=True)
         # Change Email Confirmed
         self.skill.ask_yesno = Mock(return_value="yes")
         self.skill.handle_set_my_email(test_message)
         self.skill.ask_yesno.assert_called_with("email_overwrite",
-                                                {"old": "test@neon.ai",
-                                                 "new": "demo@neon.ai"})
+                                                {"old": "test at neon dot ai",
+                                                 "new": "demo at neon dot ai"})
         self.skill.speak_dialog.assert_called_with("email_set",
-                                                   {"email": "demo@neon.ai"},
+                                                   {"email": "demo at neon dot ai"},
                                                    private=True)
         self.assertEqual(test_message.context["user_profiles"][0]
                          ["user"]["email"], "demo@neon.ai")
