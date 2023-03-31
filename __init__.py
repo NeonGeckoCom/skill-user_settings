@@ -562,7 +562,7 @@ class UserSettingsSkill(NeonSkill):
             self.speak_dialog("email_set_error", private=True)
             email_addr = self.get_gui_input(self.translate("word_email_title"),
                                             "test@neon.ai")
-            if not validate_email(email_addr):
+            if not email_addr or not validate_email(email_addr):
                 LOG.warning(f"Invalid email_addr entered: {email_addr}")
                 return
 
