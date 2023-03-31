@@ -729,7 +729,7 @@ class TestSkill(unittest.TestCase):
 
     def test_handle_set_my_email(self):
         real_get_gui_input = self.skill.get_gui_input
-        self.skill.get_gui_input = Mock()
+        self.skill.get_gui_input = Mock(return_value=None)
         real_ask_yesno = self.skill.ask_yesno
         self.skill.ask_yesno = Mock(return_value="no")
         test_profile = self.user_config
