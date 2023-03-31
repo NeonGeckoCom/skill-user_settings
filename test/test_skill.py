@@ -629,9 +629,8 @@ class TestSkill(unittest.TestCase):
         test_message.context["user_profiles"][0]["user"]["email"] = \
             "test@neon.ai"
         self.skill.handle_say_my_email(test_message)
-        self.skill.speak_dialog.assert_called_with("email_is",
-                                                   {"email": "test@neon.ai"},
-                                                   private=True)
+        self.skill.speak_dialog.assert_called_with(
+            "email_is", {"email": "test at neon dot ai"}, private=True)
 
     @mock.patch('neon_utils.net_utils.check_online')
     def test_handle_say_my_location(self, check_online):
@@ -729,6 +728,8 @@ class TestSkill(unittest.TestCase):
         self.skill.speak_dialog.assert_any_call("happy_birthday", private=True)
 
     def test_handle_set_my_email(self):
+        real_get_gui_input = self.skill.get_gui_input
+        self.skill.get_gui_input = Mock(return_value=None)
         real_ask_yesno = self.skill.ask_yesno
         self.skill.ask_yesno = Mock(return_value="no")
         test_profile = self.user_config
@@ -740,7 +741,7 @@ class TestSkill(unittest.TestCase):
         def _check_not_confirmed(msg):
             self.skill.handle_set_my_email(msg)
             self.skill.ask_yesno.assert_called_once_with(
-                "email_confirmation", {"email": "test@neon.ai"})
+                "email_confirmation", {"email": "test at neon dot ai"})
             self.skill.speak_dialog.assert_called_once_with(
                 "email_not_confirmed", private=True)
             self.skill.ask_yesno.reset_mock()
@@ -775,16 +776,16 @@ class TestSkill(unittest.TestCase):
         self.skill.ask_yesno = Mock(return_value="yes")
         self.skill.handle_set_my_email(test_message)
         self.skill.ask_yesno.assert_called_with("email_confirmation",
-                                                {"email": "test@neon.ai"})
+                                                {"email": "test at neon dot ai"})
         self.skill.speak_dialog.assert_called_with("email_set",
-                                                   {"email": "test@neon.ai"},
+                                                   {"email": "test at neon dot ai"},
                                                    private=True)
         self.assertEqual(test_message.context["user_profiles"][0]
                          ["user"]["email"], "test@neon.ai")
         # Set Email No Change
         self.skill.handle_set_my_email(test_message)
         self.skill.speak_dialog.assert_called_with("email_already_set_same",
-                                                   {"email": "test@neon.ai"},
+                                                   {"email": "test at neon dot ai"},
                                                    private=True)
         self.assertEqual(test_message.context["user_profiles"][0]
                          ["user"]["email"], "test@neon.ai")
@@ -794,24 +795,25 @@ class TestSkill(unittest.TestCase):
         test_message.data["rx_setting"] = "demo at neon dot ai"
         self.skill.handle_set_my_email(test_message)
         self.skill.ask_yesno.assert_called_with("email_overwrite",
-                                                {"old": "test@neon.ai",
-                                                 "new": "demo@neon.ai"})
+                                                {"old": "test at neon dot ai",
+                                                 "new": "demo at neon dot ai"})
         self.skill.speak_dialog.assert_called_with("email_not_changed",
-                                                   {"email": "test@neon.ai"},
+                                                   {"email": "test at neon dot ai"},
                                                    private=True)
         # Change Email Confirmed
         self.skill.ask_yesno = Mock(return_value="yes")
         self.skill.handle_set_my_email(test_message)
         self.skill.ask_yesno.assert_called_with("email_overwrite",
-                                                {"old": "test@neon.ai",
-                                                 "new": "demo@neon.ai"})
+                                                {"old": "test at neon dot ai",
+                                                 "new": "demo at neon dot ai"})
         self.skill.speak_dialog.assert_called_with("email_set",
-                                                   {"email": "demo@neon.ai"},
+                                                   {"email": "demo at neon dot ai"},
                                                    private=True)
         self.assertEqual(test_message.context["user_profiles"][0]
                          ["user"]["email"], "demo@neon.ai")
 
         self.skill.ask_yesno = real_ask_yesno
+        self.skill.get_gui_input = real_get_gui_input
 
     def test_handle_set_my_name(self):
         test_profile = self.user_config
@@ -1428,6 +1430,12 @@ class TestSkill(unittest.TestCase):
                          self.skill._get_lang_code_and_name("farsi"))
         with self.assertRaises(UnsupportedLanguageError):
             self.skill._get_lang_code_and_name("nothing")
+
+    def test_spoken_email(self):
+        self.assertEqual(self.skill._spoken_email("test@neon.ai"),
+                         "test at neon dot ai")
+        self.assertEqual(self.skill._spoken_email("my.email@domain.com"),
+                         "my dot email at domain dot com")
 
 
 if __name__ == '__main__':

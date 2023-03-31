@@ -129,6 +129,9 @@ dialog:
   - 'word_text'
   - 'word_first_name'
   - 'error_change_username'
+  - 'word_dot'
+  - 'word_at'
+  - 'word_email_title'
 # regex entities, not necessarily filenames
 regex:
   - 'rx_language'
