@@ -170,6 +170,8 @@ en-us:
         - rx_language: japanese
     - speak to me in canadian french:
         - rx_language: canadian french
+    - speak to me in spanish:
+        - rx_language: spanish
   SetMyLanguage:
     - my preferred language is ukrainian:
         - language
@@ -203,3 +205,22 @@ en-us:
   when_is_my_birthday.intent:
     - when is my birthday
     - do you know when my birthday is
+
+unmatched intents:
+  en-us:
+  - what is STT
+  - what is TTS
+  - what is a birthday
+  - what is metric
+  - what is imperial
+  - tell me about military time
+  - what is a transcript
+  - how fast can you talk
+  - where is seattle
+  - what is pacific time
+  - what is dialog
+  - do you know what a name is
+  - what is an email address
+  - when is your birthday
+  - what is language
+  - do you speak english

@@ -751,6 +751,10 @@ class UserSettingsSkill(NeonSkill):
         Handle a request to change the language spoken by the user
         :param message: Message associated with request
         """
+        if self.voc_match(message.data['utterance'], "language_tts"):
+            LOG.warning("Matched STT Intent for TTS Request!")
+            self.handle_set_tts_language(message)
+            return
         requested_lang = message.data.get('rx_language') or \
             message.data.get('request_language')
         lang = self._parse_languages(message.data.get("utterance"))[0] or \
