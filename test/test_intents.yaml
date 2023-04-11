@@ -167,11 +167,11 @@ en-us:
         - rx_language: german
   language_tts.intent:
     - talk to me in japanese:
-        - rx_language: japanese
+        - request_language: japanese
     - speak to me in canadian french:
-        - rx_language: canadian french
+        - request_language: canadian french
     - speak to me in spanish:
-        - rx_language: spanish
+        - request_language: spanish
   SetMyLanguage:
     - my preferred language is ukrainian:
         - language
