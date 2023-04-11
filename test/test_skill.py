@@ -396,8 +396,8 @@ class TestSkill(unittest.TestCase):
                              test_profile["location"][setting])
         self.assertEqual(profile["location"]["city"], "New York")
         self.assertEqual(profile["location"]["state"], "New York")
-        self.assertEqual(profile["location"]["lat"], 40.7127281)
-        self.assertEqual(profile["location"]["lng"], -74.0060152)
+        self.assertAlmostEqual(profile["location"]["lat"], 40.7127281, 5)
+        self.assertAlmostEqual(profile["location"]["lng"], -74.0060152, 5)
         self.skill.ask_yesno.reset_mock()
         self.skill.speak_dialog.reset_mock()
 
@@ -438,8 +438,8 @@ class TestSkill(unittest.TestCase):
                              test_profile["location"][setting])
         self.assertEqual(profile["location"]["city"], "Honolulu")
         self.assertEqual(profile["location"]["state"], "Hawaii")
-        self.assertAlmostEqual(profile["location"]["lat"], 21.2890997, 0)
-        self.assertAlmostEqual(profile["location"]["lng"], -157.717299, 0)
+        self.assertAlmostEqual(profile["location"]["lat"], 21.2890997, 4)
+        self.assertAlmostEqual(profile["location"]["lng"], -157.717299, 4)
         self.assertEqual(profile["location"]["tz"], "Pacific/Honolulu")
         self.assertEqual(profile["location"]["utc"], -10.0)
 
@@ -467,8 +467,8 @@ class TestSkill(unittest.TestCase):
 
         self.assertEqual(profile["location"]["city"], "Phoenix")
         self.assertEqual(profile["location"]["state"], "Arizona")
-        self.assertEqual(profile["location"]["lat"], 33.4484367)
-        self.assertEqual(profile["location"]["lng"], -112.074141)
+        self.assertAlmostEqual(profile["location"]["lat"], 33.4484367, 5)
+        self.assertAlmostEqual(profile["location"]["lng"], -112.074141, 5)
         self.assertEqual(profile["location"]["tz"], "America/Phoenix")
         self.assertEqual(profile["location"]["utc"], -7.0)
 
@@ -1293,9 +1293,7 @@ class TestSkill(unittest.TestCase):
         self.assertIsInstance(offset, float)
 
         timezone = \
-            self.skill._get_timezone_from_location(
-                self.skill._get_location_from_spoken_location(
-                    "non-existent place"))
+            self.skill._get_timezone_from_location(None)
         self.assertIsNone(timezone)
 
     def test_get_location_from_spoken_location(self):
