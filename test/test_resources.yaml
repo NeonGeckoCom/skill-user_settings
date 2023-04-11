@@ -146,6 +146,7 @@ intents:
     - 'where_am_i.intent'
     - 'language_settings.intent'
     - 'language_stt.intent'
+    - 'language_tts.intent'
     - 'who_am_i.intent'
     - 'when_is_my_birthday.intent'
   # Adapt intents are the name passed to the constructor
@@ -167,7 +168,6 @@ intents:
     - SayMyLanguageSettings
     - SetSTTLanguage
     - SetTTSLanguage
-    - TalkToMe
     - SetMyLanguage
     - NoSecondaryLanguage
     - SayMyBirthday

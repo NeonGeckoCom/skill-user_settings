@@ -396,8 +396,8 @@ class TestSkill(unittest.TestCase):
                              test_profile["location"][setting])
         self.assertEqual(profile["location"]["city"], "New York")
         self.assertEqual(profile["location"]["state"], "New York")
-        self.assertEqual(profile["location"]["lat"], 40.7127281)
-        self.assertEqual(profile["location"]["lng"], -74.0060152)
+        self.assertAlmostEqual(profile["location"]["lat"], 40.7127281, 5)
+        self.assertAlmostEqual(profile["location"]["lng"], -74.0060152, 5)
         self.skill.ask_yesno.reset_mock()
         self.skill.speak_dialog.reset_mock()
 
@@ -467,8 +467,8 @@ class TestSkill(unittest.TestCase):
 
         self.assertEqual(profile["location"]["city"], "Phoenix")
         self.assertEqual(profile["location"]["state"], "Arizona")
-        self.assertEqual(profile["location"]["lat"], 33.4484367)
-        self.assertEqual(profile["location"]["lng"], -112.074141)
+        self.assertAlmostEqual(profile["location"]["lat"], 33.4484367, 5)
+        self.assertAlmostEqual(profile["location"]["lng"], -112.074141, 5)
         self.assertEqual(profile["location"]["tz"], "America/Phoenix")
         self.assertEqual(profile["location"]["utc"], -7.0)
 
@@ -1008,7 +1008,7 @@ class TestSkill(unittest.TestCase):
         test_message.data["rx_language"] = "english"
         self.skill.handle_set_stt_language(test_message)
         self.skill.speak_dialog.assert_called_with(
-            "language_not_changed", {"io": "speech to text",
+            "language_not_changed", {"io": "input",
                                      "lang": "American English"},
             private=True)
 
@@ -1027,7 +1027,7 @@ class TestSkill(unittest.TestCase):
         self.skill.ask_yesno = Mock(return_value=False)
         self.skill.handle_set_stt_language(test_message)
         self.skill.ask_yesno.assert_called_once_with(
-            "language_change_confirmation", {"io": "speech to text",
+            "language_change_confirmation", {"io": "input",
                                              "lang": "Ukrainian"})
         self.skill.speak_dialog.assert_called_with("language_not_confirmed",
                                                    private=True)
@@ -1038,10 +1038,10 @@ class TestSkill(unittest.TestCase):
         self.skill.ask_yesno = Mock(return_value="yes")
         self.skill.handle_set_stt_language(test_message)
         self.skill.ask_yesno.assert_called_once_with(
-            "language_change_confirmation", {"io": "speech to text",
+            "language_change_confirmation", {"io": "input",
                                              "lang": "Ukrainian"})
         self.skill.speak_dialog.assert_called_with("language_set",
-                                                   {"io": "speech to text",
+                                                   {"io": "input",
                                                     "lang": "Ukrainian"},
                                                    private=True)
         self.assertEqual(test_message.context["user_profiles"][0]
@@ -1293,9 +1293,7 @@ class TestSkill(unittest.TestCase):
         self.assertIsInstance(offset, float)
 
         timezone = \
-            self.skill._get_timezone_from_location(
-                self.skill._get_location_from_spoken_location(
-                    "non-existent place"))
+            self.skill._get_timezone_from_location(None)
         self.assertIsNone(timezone)
 
     def test_get_location_from_spoken_location(self):

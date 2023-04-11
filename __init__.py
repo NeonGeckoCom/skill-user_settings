@@ -789,8 +789,7 @@ class UserSettingsSkill(NeonSkill):
     @intent_handler(IntentBuilder("SetTTSLanguage").require("change")
                     .optionally("my").require("language_tts")
                     .require("language").require("rx_language").build())
-    @intent_handler(IntentBuilder("TalkToMe").require("speak_to_me")
-                    .require("rx_language").build())
+    @intent_file_handler("language_tts.intent")
     def handle_set_tts_language(self, message: Message):
         """
         Handle a request to change the language spoken to the user
