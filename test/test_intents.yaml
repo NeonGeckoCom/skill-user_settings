@@ -165,7 +165,7 @@ en-us:
         - rx_language: spanish
     - set my text to speech language to german:
         - rx_language: german
-  TalkToMe:
+  language_tts.intent:
     - talk to me in japanese:
         - rx_language: japanese
     - speak to me in canadian french:
