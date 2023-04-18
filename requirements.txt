@@ -1,2 +1,2 @@
-neon-utils~=1.4
+neon-utils[network]~=1.4
 ovos_utils~=0.0.32
