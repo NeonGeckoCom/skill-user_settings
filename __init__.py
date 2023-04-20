@@ -39,6 +39,7 @@ from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
 from neon_utils.user_utils import get_user_prefs
 from neon_utils.language_utils import get_supported_languages
+from neon_utils.parse_utils import validate_email
 from lingua_franca.parse import extract_langcode, get_full_lang_code
 from lingua_franca.format import pronounce_lang
 from lingua_franca.internal import UnsupportedLanguageError
@@ -444,7 +445,8 @@ class UserSettingsSkill(NeonSkill):
             # TODO: Use get_response to ask for the user's email
             self.speak_dialog("email_not_known", private=True)
         else:
-            self.speak_dialog("email_is", {"email": email_address},
+            self.speak_dialog("email_is",
+                              {"email": self._spoken_email(email_address)},
                               private=True)
 
     @intent_handler(IntentBuilder("SayMyLocation").require("tell_me_my")
@@ -556,32 +558,85 @@ class UserSettingsSkill(NeonSkill):
         email_addr = "".join(email_words)
         LOG.info(email_addr)
 
-        if '@' not in email_addr or '.' not in email_addr.split('@')[1]:
+        if not validate_email(email_addr):
             self.speak_dialog("email_set_error", private=True)
-            return
+            email_addr = self.get_gui_input(self.translate("word_email_title"),
+                                            "test@neon.ai")
+            if not email_addr or not validate_email(email_addr):
+                LOG.warning(f"Invalid email_addr entered: {email_addr}")
+                return
 
         current_email = get_user_prefs(message)["user"]["email"]
         if current_email and email_addr == current_email:
             self.speak_dialog("email_already_set_same",
-                              {"email": current_email}, private=True)
+                              {"email": self._spoken_email(current_email)},
+                              private=True)
             return
         if current_email:
-            if self.ask_yesno("email_overwrite", {"old": current_email,
-                                                  "new": email_addr}) == "yes":
+            if self.ask_yesno("email_overwrite",
+                              {"old": self._spoken_email(current_email),
+                               "new": self._spoken_email(email_addr)}) == "yes":
                 self.update_profile({"user": {"email": email_addr}})
-                self.speak_dialog("email_set", {"email": email_addr},
+                self.speak_dialog("email_set",
+                                  {"email": self._spoken_email(email_addr)},
                                   private=True)
             else:
                 self.speak_dialog("email_not_changed",
-                                  {"email": current_email}, private=True)
+                                  {"email": self._spoken_email(current_email)},
+                                  private=True)
             return
         if self.ask_yesno("email_confirmation",
-                          {"email": email_addr}) == "yes":
+                          {"email": self._spoken_email(email_addr)}) == "yes":
             self.update_profile({"user": {"email": email_addr}})
-            self.speak_dialog("email_set", {"email": email_addr},
+            self.speak_dialog("email_set",
+                              {"email": self._spoken_email(email_addr)},
                               private=True)
         else:
             self.speak_dialog("email_not_confirmed", private=True)
+            email_addr = self.get_gui_input(self.translate("word_email_title"),
+                                            "test@neon.ai")
+            if email_addr:
+                self.update_profile({"user": {"email": email_addr}})
+                self.speak_dialog("email_set",
+                                  {"email": self._spoken_email(email_addr)},
+                                  private=True)
+            else:
+                LOG.info("User Cancelled email input")
+                # TODO: Speak confirmation
+
+    def get_gui_input(self, title=None, placeholder=None,
+                      confirm_text=None, exit_text=None) -> Optional[str]:
+        gui_response = None
+        response_event = Event()
+        response_event.clear()
+        self.gui.show_input_box(title, placeholder, confirm_text, exit_text,
+                                True, True)
+
+        def _on_response(message):
+            nonlocal gui_response
+            gui_response = message.data.get("text")
+            response_event.set()
+
+        def _on_close(message):
+            response_event.set()
+
+        resp_message = self.gui.build_message_type('input.box.response')
+        close_message = self.gui.build_message_type('input.box.close')
+        self.add_event(resp_message, _on_response, once=True)
+        self.add_event(close_message, _on_close, once=True)
+        response_event.wait()
+        self.gui.remove_input_box()
+        self.remove_event(resp_message)
+        self.remove_event(close_message)
+        return gui_response
+
+    # TODO: Update to import from ovos-utils
+    def remove_input_box(self):
+        LOG.info(f"GUI pages length {len(self.gui.pages)}")
+        if len(self.gui.pages) > 1:
+            self.gui.remove_page("SYSTEM_InputBox.qml")
+        else:
+            self.gui.release()
 
     @intent_handler(IntentBuilder("SetMyName").optionally("change")
                     .require("my").require("name").require("rx_setting")
@@ -734,8 +789,7 @@ class UserSettingsSkill(NeonSkill):
     @intent_handler(IntentBuilder("SetTTSLanguage").require("change")
                     .optionally("my").require("language_tts")
                     .require("language").require("rx_language").build())
-    @intent_handler(IntentBuilder("TalkToMe").require("speak_to_me")
-                    .require("rx_language").build())
+    @intent_file_handler("language_tts.intent")
     def handle_set_tts_language(self, message: Message):
         """
         Handle a request to change the language spoken to the user
@@ -961,6 +1015,13 @@ class UserSettingsSkill(NeonSkill):
             return "female"
         LOG.info(f"no gender in request: {request}")
         return None
+
+    def _spoken_email(self, email_addr: str):
+        """
+        Get a pronouncable email address string
+        """
+        return email_addr.replace('.', f' {self.translate("word_dot")} ')\
+            .replace('@', f' {self.translate("word_at")} ')
 
     @staticmethod
     def _get_name_parts(name: str, user_profile: dict) -> dict:

@@ -129,6 +129,9 @@ dialog:
   - 'word_text'
   - 'word_first_name'
   - 'error_change_username'
+  - 'word_dot'
+  - 'word_at'
+  - 'word_email_title'
 # regex entities, not necessarily filenames
 regex:
   - 'rx_language'
@@ -143,6 +146,7 @@ intents:
     - 'where_am_i.intent'
     - 'language_settings.intent'
     - 'language_stt.intent'
+    - 'language_tts.intent'
     - 'who_am_i.intent'
     - 'when_is_my_birthday.intent'
   # Adapt intents are the name passed to the constructor
@@ -164,7 +168,6 @@ intents:
     - SayMyLanguageSettings
     - SetSTTLanguage
     - SetTTSLanguage
-    - TalkToMe
     - SetMyLanguage
     - NoSecondaryLanguage
     - SayMyBirthday
