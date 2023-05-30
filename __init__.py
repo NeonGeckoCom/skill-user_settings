@@ -546,6 +546,7 @@ class UserSettingsSkill(NeonSkill):
        """
         # Parse actual email address from intent
         extracted = message.data.get("rx_setting")
+        LOG.debug(extracted)
         email_addr: str = extracted.split()[0] + \
             message.data.get("utterance").rsplit(extracted.split()[0])[1]
         dot = read_vocab_file(self.find_resource("dot.voc", 'vocab'))[0][0]
@@ -629,14 +630,6 @@ class UserSettingsSkill(NeonSkill):
         self.remove_event(resp_message)
         self.remove_event(close_message)
         return gui_response
-
-    # TODO: Update to import from ovos-utils
-    def remove_input_box(self):
-        LOG.info(f"GUI pages length {len(self.gui.pages)}")
-        if len(self.gui.pages) > 1:
-            self.gui.remove_page("SYSTEM_InputBox.qml")
-        else:
-            self.gui.release()
 
     @intent_handler(IntentBuilder("SetMyName").optionally("change")
                     .require("my").require("name").require("rx_setting")
