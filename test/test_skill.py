@@ -752,6 +752,16 @@ class TestSkill(unittest.TestCase):
         test_message.data["rx_setting"] = "test@neon . "
         _check_not_confirmed(test_message)
 
+        # Valid parse
+        test_message.data["utterance"] = "my email address is test@neon.ai"
+        test_message.data["rx_setting"] = "test@neon.ai"
+        _check_not_confirmed(test_message)
+
+        # Valid parse
+        test_message.data["utterance"] = "my email address is test@neon. ai"
+        test_message.data["rx_setting"] = "test@neon"
+        _check_not_confirmed(test_message)
+
         # Spoken input recognized domain
         test_message.data["utterance"] = "my email address is test at neon.ai"
         test_message.data["rx_setting"] = "test at neon ."
