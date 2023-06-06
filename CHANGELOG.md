@@ -1,20 +1,20 @@
 # Changelog
 
-## [0.4.2a4](https://github.com/NeonGeckoCom/skill-user_settings/tree/0.4.2a4) (2023-04-20)
+## [0.5.1](https://github.com/NeonGeckoCom/skill-user_settings/tree/0.5.1) (2023-06-06)
 
-[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/0.4.1...0.4.2a4)
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/0.5.1a1...0.5.1)
 
-**Implemented enhancements:**
+**Closed issues:**
 
-- \[FEAT\] UI to enter/correct email address [\#79](https://github.com/NeonGeckoCom/skill-user_settings/issues/79)
+- Remove duplicated ovos-utils method [\#86](https://github.com/NeonGeckoCom/skill-user_settings/issues/86)
+
+## [0.5.1a1](https://github.com/NeonGeckoCom/skill-user_settings/tree/0.5.1a1) (2023-05-30)
+
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/0.5.0...0.5.1a1)
 
 **Merged pull requests:**
 
-- Update GH Automation [\#84](https://github.com/NeonGeckoCom/skill-user_settings/pull/84) ([NeonDaniel](https://github.com/NeonDaniel))
-- Update dependencies to stable releases [\#83](https://github.com/NeonGeckoCom/skill-user_settings/pull/83) ([NeonDaniel](https://github.com/NeonDaniel))
-- Loosen ovos\_utils dependency [\#82](https://github.com/NeonGeckoCom/skill-user_settings/pull/82) ([NeonDaniel](https://github.com/NeonDaniel))
-- Tests and bugfixes relating to STT/TTS intents [\#81](https://github.com/NeonGeckoCom/skill-user_settings/pull/81) ([NeonDaniel](https://github.com/NeonDaniel))
-- Add email entry GUI [\#74](https://github.com/NeonGeckoCom/skill-user_settings/pull/74) ([NeonDaniel](https://github.com/NeonDaniel))
+- Add logging and test coverage for reported email parsing bug [\#87](https://github.com/NeonGeckoCom/skill-user_settings/pull/87) ([NeonDaniel](https://github.com/NeonDaniel))
 
 
 
