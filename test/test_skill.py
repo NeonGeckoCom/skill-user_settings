@@ -43,7 +43,7 @@ from mock.mock import call
 from neon_utils.user_utils import get_user_prefs
 from neon_utils.language_utils import SupportedLanguages
 from ovos_utils.messagebus import FakeBus
-from mycroft_bus_client import Message
+from ovos_bus_client import Message
 
 from mycroft.skills.skill_loader import SkillLoader
 

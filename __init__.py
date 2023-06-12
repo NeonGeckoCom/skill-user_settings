@@ -34,7 +34,7 @@ from adapt.intent import IntentBuilder
 from dateutil.tz import gettz
 from lingua_franca import load_language
 from lingua_franca.time import default_timezone
-from mycroft_bus_client import Message
+from ovos_bus_client import Message
 from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
 from neon_utils.user_utils import get_user_prefs
