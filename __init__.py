@@ -55,8 +55,8 @@ class UserSettingsSkill(NeonSkill):
     MAX_SPEECH_SPEED = 1.5
     MIN_SPEECH_SPEED = 0.7
 
-    def __init__(self):
-        super(UserSettingsSkill, self).__init__(name="UserSettingsSkill")
+    def __init__(self, **kwargs):
+        NeonSkill.__init__(self, **kwargs)
         self._languages = None
         self._get_location = Event()
 
@@ -1084,7 +1084,3 @@ class UserSettingsSkill(NeonSkill):
 
     def stop(self):
         pass
-
-
-def create_skill():
-    return UserSettingsSkill()
