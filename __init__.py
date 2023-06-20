@@ -117,7 +117,8 @@ class UserSettingsSkill(NeonSkill):
             new_loc['utc'] = str(round(offset, 1))
             apply_local_user_profile_updates({'location': new_loc}, user_config)
         else:
-            LOG.debug(f'Ignoring IP location for already defined user location')
+            LOG.debug(f'Ignoring IP location for already defined user location:'
+                      f'{user_config["location"]}')
         # Remove listener after a successful update
         self.remove_event('ovos.ipgeo.update.response')
 
