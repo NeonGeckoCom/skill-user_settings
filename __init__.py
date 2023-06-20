@@ -56,9 +56,9 @@ class UserSettingsSkill(NeonSkill):
     MIN_SPEECH_SPEED = 0.7
 
     def __init__(self, **kwargs):
-        NeonSkill.__init__(self, **kwargs)
         self._languages = None
         self._get_location = Event()
+        NeonSkill.__init__(self, **kwargs)
 
     @classproperty
     def runtime_requirements(self):
@@ -72,6 +72,7 @@ class UserSettingsSkill(NeonSkill):
                                    no_network_fallback=True,
                                    no_gui_fallback=True)
 
+    # TODO: move to __init__ after stable ovos-workshop release
     def initialize(self):
         if self.settings.get('use_geolocation'):
             LOG.debug(f"Geolocation update enabled")
@@ -98,8 +99,8 @@ class UserSettingsSkill(NeonSkill):
             LOG.warning(f"No geolocation returned by plugin")
             return
         from neon_utils.user_utils import apply_local_user_profile_updates
-        from neon_utils.configuration_utils import get_neon_user_config
-        user_config = get_neon_user_config()
+        from neon_utils.configuration_utils import NGIConfig
+        user_config = NGIConfig("ngi_user_info")
         if not all((user_config['location']['lat'],
                     user_config['location']['lng'])):
             LOG.info(f'Updating default user config from ip geolocation')
@@ -114,10 +115,10 @@ class UserSettingsSkill(NeonSkill):
             new_loc['lng'] = new_loc.pop('lon')
             new_loc['tz'] = name
             new_loc['utc'] = str(round(offset, 1))
-            apply_local_user_profile_updates({'location': new_loc},
-                                             get_neon_user_config())
+            apply_local_user_profile_updates({'location': new_loc}, user_config)
         else:
-            LOG.debug(f'Ignoring IP location for already defined user location')
+            LOG.debug(f'Ignoring IP location for already defined user location:'
+                      f'{user_config["location"]}')
         # Remove listener after a successful update
         self.remove_event('ovos.ipgeo.update.response')
 
