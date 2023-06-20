@@ -99,8 +99,8 @@ class UserSettingsSkill(NeonSkill):
             LOG.warning(f"No geolocation returned by plugin")
             return
         from neon_utils.user_utils import apply_local_user_profile_updates
-        from neon_utils.configuration_utils import get_neon_user_config
-        user_config = get_neon_user_config()
+        from neon_utils.configuration_utils import NGIConfig
+        user_config = NGIConfig("ngi_user_info")
         if not all((user_config['location']['lat'],
                     user_config['location']['lng'])):
             LOG.info(f'Updating default user config from ip geolocation')
@@ -115,8 +115,7 @@ class UserSettingsSkill(NeonSkill):
             new_loc['lng'] = new_loc.pop('lon')
             new_loc['tz'] = name
             new_loc['utc'] = str(round(offset, 1))
-            apply_local_user_profile_updates({'location': new_loc},
-                                             get_neon_user_config())
+            apply_local_user_profile_updates({'location': new_loc}, user_config)
         else:
             LOG.debug(f'Ignoring IP location for already defined user location')
         # Remove listener after a successful update
