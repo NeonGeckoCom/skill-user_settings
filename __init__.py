@@ -173,6 +173,7 @@ class UserSettingsSkill(NeonSkill):
             self.speak_dialog("units_changed",
                               {"unit": self.translate(f"word_{new_unit}")},
                               private=True)
+            self._emit_weather_update(message)
 
     @intent_handler(IntentBuilder("ChangeTime").require("change")
                     .require("time").one_of("half", "full").build())
