@@ -56,9 +56,9 @@ class UserSettingsSkill(NeonSkill):
     MIN_SPEECH_SPEED = 0.7
 
     def __init__(self, **kwargs):
-        NeonSkill.__init__(self, **kwargs)
         self._languages = None
         self._get_location = Event()
+        NeonSkill.__init__(self, **kwargs)
 
     @classproperty
     def runtime_requirements(self):
@@ -72,6 +72,7 @@ class UserSettingsSkill(NeonSkill):
                                    no_network_fallback=True,
                                    no_gui_fallback=True)
 
+    # TODO: move to __init__ after stable ovos-workshop release
     def initialize(self):
         if self.settings.get('use_geolocation'):
             LOG.debug(f"Geolocation update enabled")
