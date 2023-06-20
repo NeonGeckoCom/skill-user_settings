@@ -116,6 +116,7 @@ class UserSettingsSkill(NeonSkill):
             new_loc['tz'] = name
             new_loc['utc'] = str(round(offset, 1))
             apply_local_user_profile_updates({'location': new_loc}, user_config)
+            self._emit_weather_update(message)
         else:
             LOG.debug(f'Ignoring IP location for already defined user location:'
                       f'{user_config["location"]}')
@@ -172,6 +173,7 @@ class UserSettingsSkill(NeonSkill):
             self.speak_dialog("units_changed",
                               {"unit": self.translate(f"word_{new_unit}")},
                               private=True)
+            self._emit_weather_update(message)
 
     @intent_handler(IntentBuilder("ChangeTime").require("change")
                     .require("time").one_of("half", "full").build())
@@ -341,6 +343,7 @@ class UserSettingsSkill(NeonSkill):
                               {"type": self.translate("word_location"),
                                "location": resolved_place['address']['city']},
                               private=True)
+            self._emit_weather_update(message)
 
     @intent_handler(IntentBuilder("ChangeDialog").one_of("change", "permit")
                     .require("dialog_mode").one_of("random", "limited")
@@ -926,6 +929,13 @@ class UserSettingsSkill(NeonSkill):
                                         "secondary_neon_voice": ""}},
                             message)
         self.speak_dialog("only_one_language", private=True)
+
+    def _emit_weather_update(self, message: Message):
+        """
+        Emit a weather update on location change
+        """
+        self.bus.emit(
+            message.forward("skill-ovos-weather.openvoiceos.weather.request"))
 
     def _parse_languages(self, utterance: str) -> \
             (Optional[str], Optional[str]):
