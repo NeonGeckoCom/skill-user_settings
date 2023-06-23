@@ -159,6 +159,7 @@ intents:
   adapt:
     - ChangeUnits
     - ChangeTime
+    - ChangeDate
     - SetHesitation
     - Transcription
     - SpeakSpeed
