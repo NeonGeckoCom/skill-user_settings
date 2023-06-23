@@ -51,6 +51,10 @@ vocab:
   - 'timezone'
   - 'units'
   - 'username'
+  - 'date'
+  - 'DMY'
+  - 'MDY'
+  - 'YMD'
 
 # dialog is .dialog file basenames (case-sensitive)
 dialog:
@@ -132,6 +136,8 @@ dialog:
   - 'word_dot'
   - 'word_at'
   - 'word_email_title'
+  - 'date_format_already_set'
+  - 'date_format_changed'
 # regex entities, not necessarily filenames
 regex:
   - 'rx_language'

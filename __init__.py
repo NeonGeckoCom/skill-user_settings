@@ -197,6 +197,31 @@ class UserSettingsSkill(NeonSkill):
             self.speak_dialog("time_format_changed",
                               {"scale": str(new_setting)}, private=True)
 
+    @intent_handler(IntentBuilder("ChangeDate").require("change")
+                    .require("date").one_of("MDY", "DMY", "YMD").build())
+    def handle_date_format_change(self, message: Message):
+        """
+        Handle a request to set date format to DMY, MDY, or YMD format
+        :param message: Message associated with request
+        """
+        new_setting = "YMD" if message.data.get("YMD") else \
+            "MDY" if message.data.get("MDY") else \
+            "DMY" if message.data.get("DMY") else None
+        if not new_setting:
+            raise RuntimeError("Missing required date format vocab")
+
+        current_setting = get_user_prefs(message)["units"]["date"]
+        if new_setting == current_setting:
+            self.speak_dialog("date_format_already_set",
+                              {"format": message.data.get(new_setting)},
+                              private=True)
+        else:
+            updated_prefs = {"units": {"date": new_setting}}
+            self.update_profile(updated_prefs, message)
+            self.speak_dialog("date_format_changed",
+                              {"format": message.data.get(new_setting)},
+                              private=True)
+
     @intent_handler(IntentBuilder("SetHesitation").one_of("permit", "deny")
                     .require("hesitation").build())
     def handle_speak_hesitation(self, message: Message):
