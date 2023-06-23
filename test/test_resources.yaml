@@ -52,9 +52,9 @@ vocab:
   - 'units'
   - 'username'
   - 'date'
-  - 'DMY'
-  - 'MDY'
-  - 'YMD'
+  - 'dmy'
+  - 'mdy'
+  - 'ymd'
 
 # dialog is .dialog file basenames (case-sensitive)
 dialog:

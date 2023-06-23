@@ -207,7 +207,7 @@ class TestSkill(unittest.TestCase):
         test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"
         test_profile["units"]["date"] = "MDY"
-        test_message = Message("test", {"MDY": "month day year"},
+        test_message = Message("test", {"mdy": "month day year"},
                                {"username": "test_user",
                                 "user_profiles": [test_profile]})
         # MDY -> MDY
@@ -218,7 +218,7 @@ class TestSkill(unittest.TestCase):
         self.assertEqual(
             test_message.context["user_profiles"][0]["units"]["date"], "MDY")
         # MDY -> YMD
-        test_message.data = {"YMD": "year month day"}
+        test_message.data = {"ymd": "year month day"}
         self.skill.handle_date_format_change(test_message)
         self.skill.speak_dialog.assert_called_with("date_format_changed",
                                                    {"format": "year month day"},
@@ -233,7 +233,7 @@ class TestSkill(unittest.TestCase):
         self.assertEqual(
             test_message.context["user_profiles"][0]["units"]["date"], "YMD")
         # YMD -> DMY
-        test_message.data = {"DMY": "day month year"}
+        test_message.data = {"dmy": "day month year"}
         self.skill.handle_date_format_change(test_message)
         self.skill.speak_dialog.assert_called_with("date_format_changed",
                                                    {"format": "day month year"},
