@@ -1,20 +1,56 @@
 # Changelog
 
-## [0.5.1](https://github.com/NeonGeckoCom/skill-user_settings/tree/0.5.1) (2023-06-06)
+## [0.5.2a6](https://github.com/NeonGeckoCom/skill-user_settings/tree/0.5.2a6) (2023-06-26)
 
-[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/0.5.1a1...0.5.1)
-
-**Closed issues:**
-
-- Remove duplicated ovos-utils method [\#86](https://github.com/NeonGeckoCom/skill-user_settings/issues/86)
-
-## [0.5.1a1](https://github.com/NeonGeckoCom/skill-user_settings/tree/0.5.1a1) (2023-05-30)
-
-[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/0.5.0...0.5.1a1)
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/0.5.2a5...0.5.2a6)
 
 **Merged pull requests:**
 
-- Add logging and test coverage for reported email parsing bug [\#87](https://github.com/NeonGeckoCom/skill-user_settings/pull/87) ([NeonDaniel](https://github.com/NeonDaniel))
+- Update event handling [\#94](https://github.com/NeonGeckoCom/skill-user_settings/pull/94) ([NeonDaniel](https://github.com/NeonDaniel))
+
+## [0.5.2a5](https://github.com/NeonGeckoCom/skill-user_settings/tree/0.5.2a5) (2023-06-23)
+
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/0.5.2a4...0.5.2a5)
+
+**Fixed bugs:**
+
+- \[BUG\] Change units to imperial not affecting responses [\#64](https://github.com/NeonGeckoCom/skill-user_settings/issues/64)
+
+**Merged pull requests:**
+
+- Add intent to change date format [\#93](https://github.com/NeonGeckoCom/skill-user_settings/pull/93) ([NeonDaniel](https://github.com/NeonDaniel))
+
+## [0.5.2a4](https://github.com/NeonGeckoCom/skill-user_settings/tree/0.5.2a4) (2023-06-20)
+
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/0.5.2a3...0.5.2a4)
+
+**Merged pull requests:**
+
+- Update weather on preference changes [\#92](https://github.com/NeonGeckoCom/skill-user_settings/pull/92) ([NeonDaniel](https://github.com/NeonDaniel))
+
+## [0.5.2a3](https://github.com/NeonGeckoCom/skill-user_settings/tree/0.5.2a3) (2023-06-20)
+
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/0.5.2a2...0.5.2a3)
+
+**Merged pull requests:**
+
+- Config fixes and init refactor [\#91](https://github.com/NeonGeckoCom/skill-user_settings/pull/91) ([NeonDaniel](https://github.com/NeonDaniel))
+
+## [0.5.2a2](https://github.com/NeonGeckoCom/skill-user_settings/tree/0.5.2a2) (2023-06-15)
+
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/0.5.2a1...0.5.2a2)
+
+**Merged pull requests:**
+
+- Deprecate `create_skill` method and update `__init__` for best practices [\#90](https://github.com/NeonGeckoCom/skill-user_settings/pull/90) ([NeonDaniel](https://github.com/NeonDaniel))
+
+## [0.5.2a1](https://github.com/NeonGeckoCom/skill-user_settings/tree/0.5.2a1) (2023-06-12)
+
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/0.5.1...0.5.2a1)
+
+**Merged pull requests:**
+
+- Refactor mycroft-messagebus-client to ovos-bus-client [\#89](https://github.com/NeonGeckoCom/skill-user_settings/pull/89) ([NeonDaniel](https://github.com/NeonDaniel))
 
 
 
