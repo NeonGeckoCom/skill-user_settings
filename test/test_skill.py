@@ -43,7 +43,7 @@ from mock.mock import call
 from neon_utils.user_utils import get_user_prefs
 from neon_utils.language_utils import SupportedLanguages
 from ovos_utils.messagebus import FakeBus
-from mycroft_bus_client import Message
+from ovos_bus_client import Message
 
 from mycroft.skills.skill_loader import SkillLoader
 
@@ -202,6 +202,44 @@ class TestSkill(unittest.TestCase):
                                                    private=True)
         self.assertEqual(
             test_message.context["user_profiles"][0]["units"]["time"], 12)
+
+    def test_handle_date_format_change(self):
+        test_profile = self.user_config
+        test_profile["user"]["username"] = "test_user"
+        test_profile["units"]["date"] = "MDY"
+        test_message = Message("test", {"mdy": "month day year"},
+                               {"username": "test_user",
+                                "user_profiles": [test_profile]})
+        # MDY -> MDY
+        self.skill.handle_date_format_change(test_message)
+        self.skill.speak_dialog.assert_called_once_with(
+            "date_format_already_set", {"format": "month day year"},
+            private=True)
+        self.assertEqual(
+            test_message.context["user_profiles"][0]["units"]["date"], "MDY")
+        # MDY -> YMD
+        test_message.data = {"ymd": "year month day"}
+        self.skill.handle_date_format_change(test_message)
+        self.skill.speak_dialog.assert_called_with("date_format_changed",
+                                                   {"format": "year month day"},
+                                                   private=True)
+        self.assertEqual(
+            test_message.context["user_profiles"][0]["units"]["date"], "YMD")
+        # YMD -> YMD
+        self.skill.handle_date_format_change(test_message)
+        self.skill.speak_dialog.assert_called_with("date_format_already_set",
+                                                   {"format": "year month day"},
+                                                   private=True)
+        self.assertEqual(
+            test_message.context["user_profiles"][0]["units"]["date"], "YMD")
+        # YMD -> DMY
+        test_message.data = {"dmy": "day month year"}
+        self.skill.handle_date_format_change(test_message)
+        self.skill.speak_dialog.assert_called_with("date_format_changed",
+                                                   {"format": "day month year"},
+                                                   private=True)
+        self.assertEqual(
+            test_message.context["user_profiles"][0]["units"]["date"], "DMY")
 
     def test_handle_speech_hesitation(self):
         test_profile = self.user_config

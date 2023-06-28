@@ -44,6 +44,13 @@ en-us:
         - full
     - change to military time:
         - full
+  ChangeDate:
+    - use year month day date format:
+        - ymd
+    - change date format to month day year:
+        - mdy
+    - change to day month year date format:
+        - dmy
   SetHesitation:
     - enable hesitation:
         - permit

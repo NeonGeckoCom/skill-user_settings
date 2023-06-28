@@ -34,7 +34,7 @@ from adapt.intent import IntentBuilder
 from dateutil.tz import gettz
 from lingua_franca import load_language
 from lingua_franca.time import default_timezone
-from mycroft_bus_client import Message
+from ovos_bus_client import Message
 from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
 from neon_utils.user_utils import get_user_prefs
@@ -55,10 +55,10 @@ class UserSettingsSkill(NeonSkill):
     MAX_SPEECH_SPEED = 1.5
     MIN_SPEECH_SPEED = 0.7
 
-    def __init__(self):
-        super(UserSettingsSkill, self).__init__(name="UserSettingsSkill")
+    def __init__(self, **kwargs):
         self._languages = None
         self._get_location = Event()
+        NeonSkill.__init__(self, **kwargs)
 
     @classproperty
     def runtime_requirements(self):
@@ -72,11 +72,11 @@ class UserSettingsSkill(NeonSkill):
                                    no_network_fallback=True,
                                    no_gui_fallback=True)
 
+    # TODO: move to __init__ after stable ovos-workshop release
     def initialize(self):
         if self.settings.get('use_geolocation'):
             LOG.debug(f"Geolocation update enabled")
-            self.add_event("mycroft.ready", self._request_location_update,
-                           once=True)
+            self.add_event("mycroft.ready", self._request_location_update)
 
     def _request_location_update(self, _=None):
         LOG.info(f'Requesting Geolocation update')
@@ -98,8 +98,8 @@ class UserSettingsSkill(NeonSkill):
             LOG.warning(f"No geolocation returned by plugin")
             return
         from neon_utils.user_utils import apply_local_user_profile_updates
-        from neon_utils.configuration_utils import get_neon_user_config
-        user_config = get_neon_user_config()
+        from neon_utils.configuration_utils import NGIConfig
+        user_config = NGIConfig("ngi_user_info")
         if not all((user_config['location']['lat'],
                     user_config['location']['lng'])):
             LOG.info(f'Updating default user config from ip geolocation')
@@ -114,10 +114,11 @@ class UserSettingsSkill(NeonSkill):
             new_loc['lng'] = new_loc.pop('lon')
             new_loc['tz'] = name
             new_loc['utc'] = str(round(offset, 1))
-            apply_local_user_profile_updates({'location': new_loc},
-                                             get_neon_user_config())
+            apply_local_user_profile_updates({'location': new_loc}, user_config)
+            self._emit_weather_update(message)
         else:
-            LOG.debug(f'Ignoring IP location for already defined user location')
+            LOG.debug(f'Ignoring IP location for already defined user location:'
+                      f'{user_config["location"]}')
         # Remove listener after a successful update
         self.remove_event('ovos.ipgeo.update.response')
 
@@ -171,6 +172,7 @@ class UserSettingsSkill(NeonSkill):
             self.speak_dialog("units_changed",
                               {"unit": self.translate(f"word_{new_unit}")},
                               private=True)
+            self._emit_weather_update(message)
 
     @intent_handler(IntentBuilder("ChangeTime").require("change")
                     .require("time").one_of("half", "full").build())
@@ -193,6 +195,31 @@ class UserSettingsSkill(NeonSkill):
             self.update_profile(updated_prefs, message)
             self.speak_dialog("time_format_changed",
                               {"scale": str(new_setting)}, private=True)
+
+    @intent_handler(IntentBuilder("ChangeDate").require("change")
+                    .require("date").one_of("mdy", "dmy", "ymd").build())
+    def handle_date_format_change(self, message: Message):
+        """
+        Handle a request to set date format to DMY, MDY, or YMD format
+        :param message: Message associated with request
+        """
+        new_setting = "YMD" if message.data.get("ymd") else \
+            "MDY" if message.data.get("mdy") else \
+            "DMY" if message.data.get("dmy") else None
+        if not new_setting:
+            raise RuntimeError("Missing required date format vocab")
+
+        current_setting = get_user_prefs(message)["units"]["date"]
+        if new_setting == current_setting:
+            self.speak_dialog("date_format_already_set",
+                              {"format": message.data.get(new_setting.lower())},
+                              private=True)
+        else:
+            updated_prefs = {"units": {"date": new_setting}}
+            self.update_profile(updated_prefs, message)
+            self.speak_dialog("date_format_changed",
+                              {"format": message.data.get(new_setting.lower())},
+                              private=True)
 
     @intent_handler(IntentBuilder("SetHesitation").one_of("permit", "deny")
                     .require("hesitation").build())
@@ -340,6 +367,7 @@ class UserSettingsSkill(NeonSkill):
                               {"type": self.translate("word_location"),
                                "location": resolved_place['address']['city']},
                               private=True)
+            self._emit_weather_update(message)
 
     @intent_handler(IntentBuilder("ChangeDialog").one_of("change", "permit")
                     .require("dialog_mode").one_of("random", "limited")
@@ -926,6 +954,13 @@ class UserSettingsSkill(NeonSkill):
                             message)
         self.speak_dialog("only_one_language", private=True)
 
+    def _emit_weather_update(self, message: Message):
+        """
+        Emit a weather update on location change
+        """
+        self.bus.emit(
+            message.forward("skill-ovos-weather.openvoiceos.weather.request"))
+
     def _parse_languages(self, utterance: str) -> \
             (Optional[str], Optional[str]):
         """
@@ -1084,7 +1119,3 @@ class UserSettingsSkill(NeonSkill):
 
     def stop(self):
         pass
-
-
-def create_skill():
-    return UserSettingsSkill()
