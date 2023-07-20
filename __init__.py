@@ -100,8 +100,14 @@ class UserSettingsSkill(NeonSkill):
         from neon_utils.user_utils import apply_local_user_profile_updates
         from neon_utils.configuration_utils import NGIConfig
         user_config = NGIConfig("ngi_user_info")
-        if not all((user_config.get('location', {}).get('lat'),
-                    user_config.get('location', {}).get('lng'))):
+        default_coords = (
+            self.config_core.default.get('coordinate', {}).get('latitude'),
+            self.config_core.default.get('coordinate', {}).get('longitude'))
+        user_coords = (
+            user_config.get('location', {}).get('lat'),
+            user_config.get('location', {}).get('lng')
+        )
+        if not all(user_coords) or user_coords == default_coords:
             LOG.info(f'Updating default user config from ip geolocation')
             new_loc = {
                     'lat': str(updated_location['coordinate']['latitude']),
