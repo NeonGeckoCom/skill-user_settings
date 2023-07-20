@@ -126,6 +126,8 @@ class UserSettingsSkill(NeonSkill):
         else:
             LOG.debug(f'Ignoring IP location for already defined user location:'
                       f'{user_config["location"]}')
+            LOG.debug(f'default={default_coords}')
+            LOG.debug(f'user={user_coords}')
         # Remove listener after a successful update
         self.remove_event('ovos.ipgeo.update.response')
 
