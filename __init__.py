@@ -101,9 +101,12 @@ class UserSettingsSkill(NeonSkill):
         from neon_utils.configuration_utils import NGIConfig
         user_config = NGIConfig("ngi_user_info")
         default_coords = (
-            str(self.config_core.default.get('coordinate', {}).get('latitude')),
-            str(self.config_core.default.get('coordinate', {}).get('longitude'))
-        )
+            str(self.config_core.default.get('location',
+                                             {}).get('coordinate',
+                                                     {}).get('latitude')),
+            str(self.config_core.default.get('location',
+                                             {}).get('coordinate',
+                                                     {}).get('longitude')))
         user_coords = (
             user_config.get('location', {}).get('lat'),
             user_config.get('location', {}).get('lng')
