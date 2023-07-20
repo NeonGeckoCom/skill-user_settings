@@ -1,12 +1,12 @@
 # Changelog
 
-## [1.0.1a1](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.1a1) (2023-07-12)
+## [1.0.2a1](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.2a1) (2023-07-20)
 
-[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.0...1.0.1a1)
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.1...1.0.2a1)
 
 **Merged pull requests:**
 
-- Make user config references safe [\#96](https://github.com/NeonGeckoCom/skill-user_settings/pull/96) ([NeonDaniel](https://github.com/NeonDaniel))
+- Better default location handling [\#98](https://github.com/NeonGeckoCom/skill-user_settings/pull/98) ([NeonDaniel](https://github.com/NeonDaniel))
 
 
 

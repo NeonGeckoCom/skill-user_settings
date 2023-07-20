@@ -100,8 +100,20 @@ class UserSettingsSkill(NeonSkill):
         from neon_utils.user_utils import apply_local_user_profile_updates
         from neon_utils.configuration_utils import NGIConfig
         user_config = NGIConfig("ngi_user_info")
-        if not all((user_config.get('location', {}).get('lat'),
-                    user_config.get('location', {}).get('lng'))):
+        # default_coords = (
+        #     str(self.config_core.default.get('location',
+        #                                      {}).get('coordinate',
+        #                                              {}).get('latitude')),
+        #     str(self.config_core.default.get('location',
+        #                                      {}).get('coordinate',
+        #                                              {}).get('longitude')))
+        # TODO: Figure out why default config doesn't match real default values
+        default_coords = ("38.971669", "-95.23525")
+        user_coords = (
+            user_config.get('location', {}).get('lat'),
+            user_config.get('location', {}).get('lng')
+        )
+        if not all(user_coords) or user_coords == default_coords:
             LOG.info(f'Updating default user config from ip geolocation')
             new_loc = {
                     'lat': str(updated_location['coordinate']['latitude']),
@@ -119,6 +131,8 @@ class UserSettingsSkill(NeonSkill):
         else:
             LOG.debug(f'Ignoring IP location for already defined user location:'
                       f'{user_config["location"]}')
+            LOG.debug(f'default={default_coords}')
+            LOG.debug(f'user={user_coords}')
         # Remove listener after a successful update
         self.remove_event('ovos.ipgeo.update.response')
 
