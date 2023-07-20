@@ -100,13 +100,15 @@ class UserSettingsSkill(NeonSkill):
         from neon_utils.user_utils import apply_local_user_profile_updates
         from neon_utils.configuration_utils import NGIConfig
         user_config = NGIConfig("ngi_user_info")
-        default_coords = (
-            str(self.config_core.default.get('location',
-                                             {}).get('coordinate',
-                                                     {}).get('latitude')),
-            str(self.config_core.default.get('location',
-                                             {}).get('coordinate',
-                                                     {}).get('longitude')))
+        # default_coords = (
+        #     str(self.config_core.default.get('location',
+        #                                      {}).get('coordinate',
+        #                                              {}).get('latitude')),
+        #     str(self.config_core.default.get('location',
+        #                                      {}).get('coordinate',
+        #                                              {}).get('longitude')))
+        # TODO: Figure out why default config doesn't match real default values
+        default_coords = ("38.971669", "-95.23525")
         user_coords = (
             user_config.get('location', {}).get('lat'),
             user_config.get('location', {}).get('lng')
