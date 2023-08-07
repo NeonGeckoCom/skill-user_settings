@@ -831,7 +831,7 @@ class UserSettingsSkill(NeonSkill):
         :param message: Message associated with request
         """
         language = message.data.get("rx_language") or \
-            message.data.get("rx_setting")
+            message.data.get("request_language")
         primary, secondary = \
             self._parse_languages(message.data.get("utterance"))
         LOG.info(f"primary={primary} | secondary={secondary} | "
