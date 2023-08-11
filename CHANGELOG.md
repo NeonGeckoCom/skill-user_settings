@@ -1,12 +1,12 @@
 # Changelog
 
-## [1.0.2a1](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.2a1) (2023-07-20)
+## [1.0.3a1](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.3a1) (2023-08-07)
 
-[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.1...1.0.2a1)
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.2...1.0.3a1)
 
 **Merged pull requests:**
 
-- Better default location handling [\#98](https://github.com/NeonGeckoCom/skill-user_settings/pull/98) ([NeonDaniel](https://github.com/NeonDaniel))
+- Fix TTS Intent Language Bug [\#100](https://github.com/NeonGeckoCom/skill-user_settings/pull/100) ([NeonDaniel](https://github.com/NeonDaniel))
 
 
 
