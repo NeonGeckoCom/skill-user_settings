@@ -979,6 +979,74 @@ class TestSkill(unittest.TestCase):
         self.assertEqual(test_message.context["user_profiles"][0]
                          ["user"]["preferred_name"], "Dan")
 
+        real_ask_yesno = self.skill.ask_yesno
+        self.skill.ask_yesno = Mock(return_value=False)
+
+        # Test first name too long, unconfirmed
+        test_message.data['utterance'] = ("my first name is some misfired "
+                                          "intent match")
+        test_message.data["rx_setting"] = "some misfired intent match"
+        self.skill.handle_set_my_name(test_message)
+        self.skill.ask_yesno.assert_called_with("name_confirm_change",
+                                                {"position": "first name",
+                                                 "name": test_message.data[
+                                                     "rx_setting"].title()})
+        self.skill.speak_dialog.assert_called_with("name_not_confirmed",
+                                                   private=True)
+
+        # Test full name too long, unconfirmed
+        test_message.data['utterance'] = ("my name is some other misfired "
+                                          "intent match")
+        test_message.data["rx_setting"] = "some other misfired intent match"
+        self.skill.handle_set_my_name(test_message)
+        self.skill.ask_yesno.assert_called_with("name_confirm_change",
+                                                {"position": "name",
+                                                 "name": test_message.data[
+                                                     "rx_setting"].title()})
+        self.skill.speak_dialog.assert_called_with("name_not_confirmed",
+                                                   private=True)
+
+        self.skill.ask_yesno.return_value = True
+        # Test full name too long, confirmed
+        test_message.data['utterance'] = ("my name is José Eduardo Santos "
+                                          "Tavares Melo Silva")
+        test_message.data["rx_setting"] = "José Eduardo Santos Tavares Melo Silva"
+        self.skill.handle_set_my_name(test_message)
+        self.skill.ask_yesno.assert_called_with("name_confirm_change",
+                                                {"position": "name",
+                                                 "name": test_message.data[
+                                                     "rx_setting"].title()})
+        self.skill.speak_dialog.assert_called_with(
+            "name_set_full",
+            {"nick": test_message.context["user_profiles"][0]["user"]
+             ["preferred_name"],
+             "name": test_message.data["rx_setting"]}, private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["full_name"], test_message.data["rx_setting"])
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["first_name"], "José")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["middle_name"], "Eduardo")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["last_name"], "Santos Tavares Melo Silva")
+
+        # Test last name too long, confirmed no change
+        test_message.data['utterance'] = ("my last name is Santos "
+                                          "Tavares Melo Silva")
+        test_message.data["rx_setting"] = "Santos Tavares Melo Silva"
+        self.skill.handle_set_my_name(test_message)
+        self.skill.ask_yesno.assert_called_with("name_confirm_change",
+                                                {"position": "last name",
+                                                 "name": test_message.data[
+                                                     "rx_setting"].title()})
+        self.skill.speak_dialog.assert_called_with("name_not_changed",
+                                                   {"position": "last name",
+                                                    "name": test_message.data[
+                                                        "rx_setting"]},
+                                                   private=True)
+
+        self.skill.ask_yesno = real_ask_yesno
+
     def test_handle_say_my_language_settings(self):
         test_profile = self.user_config
         test_profile["user"]["username"] = "test_user"

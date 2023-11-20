@@ -138,6 +138,8 @@ dialog:
   - 'word_email_title'
   - 'date_format_already_set'
   - 'date_format_changed'
+  - 'name_confirm_change'
+  - 'name_not_confirmed'
 # regex entities, not necessarily filenames
 regex:
   - 'rx_language'
