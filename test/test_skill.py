@@ -25,30 +25,24 @@
 # LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-import json
-import os
-import shutil
+
 import unittest
+import mock
 
 from copy import deepcopy
 from datetime import datetime
-from os import mkdir
-from os.path import dirname, join, exists
 from typing import Optional
-
-import mock
 from dateutil.tz import gettz
 from mock import Mock
 from mock.mock import call
 from neon_utils.user_utils import get_user_prefs
 from neon_utils.language_utils import SupportedLanguages
-from ovos_utils.messagebus import FakeBus
 from ovos_bus_client import Message
 
-from mycroft.skills.skill_loader import SkillLoader
+from neon_minerva.tests.skill_unit_test_base import SkillTestCase
 
 
-class TestSkill(unittest.TestCase):
+class TestSkill(SkillTestCase):
     test_message = Message("test", {}, {"neon_in_request": True})
     default_config = deepcopy(get_user_prefs())
     default_config['location']['country'] = "United States"
@@ -57,35 +51,10 @@ class TestSkill(unittest.TestCase):
     @mock.patch('neon_utils.language_utils.get_supported_languages')
     def setUpClass(cls, get_langs) -> None:
         get_langs.return_value = SupportedLanguages({'en'}, {'en'}, {'en'})
-        # Define a directory to use for testing
-        cls.test_fs = join(dirname(__file__), "skill_fs")
-        if not exists(cls.test_fs):
-            mkdir(cls.test_fs)
-        os.environ["NEON_CONFIG_PATH"] = cls.test_fs
-
-        bus = FakeBus()
-        bus.run_in_thread()
-        skill_loader = SkillLoader(bus, dirname(dirname(__file__)))
-        skill_loader.load()
-        cls.skill = skill_loader.instance
-
-        # Override the configuration and fs paths to use the test directory
-        cls.skill.settings_write_path = cls.test_fs
-        cls.skill.file_system.path = cls.test_fs
-        cls.skill._init_settings()
-        cls.skill.initialize()
-
-        # Override speak and speak_dialog to test passed arguments
-        cls.skill.speak = Mock()
-        cls.skill.speak_dialog = Mock()
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        shutil.rmtree(cls.test_fs)
+        SkillTestCase.setUpClass()
 
     def setUp(self):
-        self.skill.speak.reset_mock()
-        self.skill.speak_dialog.reset_mock()
+        SkillTestCase.setUp(self)
         self.user_config = deepcopy(self.default_config)
 
     def test_00_skill_init(self):
@@ -978,6 +947,74 @@ class TestSkill(unittest.TestCase):
                          ["user"]["last_name"], "User Again")
         self.assertEqual(test_message.context["user_profiles"][0]
                          ["user"]["preferred_name"], "Dan")
+
+        real_ask_yesno = self.skill.ask_yesno
+        self.skill.ask_yesno = Mock(return_value=False)
+
+        # Test first name too long, unconfirmed
+        test_message.data['utterance'] = ("my first name is some misfired "
+                                          "intent match")
+        test_message.data["rx_setting"] = "some misfired intent match"
+        self.skill.handle_set_my_name(test_message)
+        self.skill.ask_yesno.assert_called_with("name_confirm_change",
+                                                {"position": "first name",
+                                                 "name": test_message.data[
+                                                     "rx_setting"].title()})
+        self.skill.speak_dialog.assert_called_with("name_not_confirmed",
+                                                   private=True)
+
+        # Test full name too long, unconfirmed
+        test_message.data['utterance'] = ("my name is some other misfired "
+                                          "intent match")
+        test_message.data["rx_setting"] = "some other misfired intent match"
+        self.skill.handle_set_my_name(test_message)
+        self.skill.ask_yesno.assert_called_with("name_confirm_change",
+                                                {"position": "name",
+                                                 "name": test_message.data[
+                                                     "rx_setting"].title()})
+        self.skill.speak_dialog.assert_called_with("name_not_confirmed",
+                                                   private=True)
+
+        self.skill.ask_yesno.return_value = True
+        # Test full name too long, confirmed
+        test_message.data['utterance'] = ("my name is José Eduardo Santos "
+                                          "Tavares Melo Silva")
+        test_message.data["rx_setting"] = "José Eduardo Santos Tavares Melo Silva"
+        self.skill.handle_set_my_name(test_message)
+        self.skill.ask_yesno.assert_called_with("name_confirm_change",
+                                                {"position": "name",
+                                                 "name": test_message.data[
+                                                     "rx_setting"].title()})
+        self.skill.speak_dialog.assert_called_with(
+            "name_set_full",
+            {"nick": test_message.context["user_profiles"][0]["user"]
+             ["preferred_name"],
+             "name": test_message.data["rx_setting"]}, private=True)
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["full_name"], test_message.data["rx_setting"])
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["first_name"], "José")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["middle_name"], "Eduardo")
+        self.assertEqual(test_message.context["user_profiles"][0]
+                         ["user"]["last_name"], "Santos Tavares Melo Silva")
+
+        # Test last name too long, confirmed no change
+        test_message.data['utterance'] = ("my last name is Santos "
+                                          "Tavares Melo Silva")
+        test_message.data["rx_setting"] = "Santos Tavares Melo Silva"
+        self.skill.handle_set_my_name(test_message)
+        self.skill.ask_yesno.assert_called_with("name_confirm_change",
+                                                {"position": "last name",
+                                                 "name": test_message.data[
+                                                     "rx_setting"].title()})
+        self.skill.speak_dialog.assert_called_with("name_not_changed",
+                                                   {"position": "last name",
+                                                    "name": test_message.data[
+                                                        "rx_setting"]},
+                                                   private=True)
+
+        self.skill.ask_yesno = real_ask_yesno
 
     def test_handle_say_my_language_settings(self):
         test_profile = self.user_config
