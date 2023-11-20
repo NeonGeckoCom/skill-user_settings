@@ -53,6 +53,10 @@ class TestSkill(SkillTestCase):
         get_langs.return_value = SupportedLanguages({'en'}, {'en'}, {'en'})
         SkillTestCase.setUpClass()
 
+    def setUp(self):
+        SkillTestCase.setUp(self)
+        self.user_config = deepcopy(self.default_config)
+
     def test_00_skill_init(self):
         # Test any parameters expected to be set in init or initialize methods
         from neon_utils.skills.neon_skill import NeonSkill
