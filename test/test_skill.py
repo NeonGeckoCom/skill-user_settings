@@ -25,30 +25,24 @@
 # LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-import json
-import os
-import shutil
+
 import unittest
+import mock
 
 from copy import deepcopy
 from datetime import datetime
-from os import mkdir
-from os.path import dirname, join, exists
 from typing import Optional
-
-import mock
 from dateutil.tz import gettz
 from mock import Mock
 from mock.mock import call
 from neon_utils.user_utils import get_user_prefs
 from neon_utils.language_utils import SupportedLanguages
-from ovos_utils.messagebus import FakeBus
 from ovos_bus_client import Message
 
-from mycroft.skills.skill_loader import SkillLoader
+from neon_minerva.tests.skill_unit_test_base import SkillTestCase
 
 
-class TestSkill(unittest.TestCase):
+class TestSkill(SkillTestCase):
     test_message = Message("test", {}, {"neon_in_request": True})
     default_config = deepcopy(get_user_prefs())
     default_config['location']['country'] = "United States"
@@ -57,36 +51,7 @@ class TestSkill(unittest.TestCase):
     @mock.patch('neon_utils.language_utils.get_supported_languages')
     def setUpClass(cls, get_langs) -> None:
         get_langs.return_value = SupportedLanguages({'en'}, {'en'}, {'en'})
-        # Define a directory to use for testing
-        cls.test_fs = join(dirname(__file__), "skill_fs")
-        if not exists(cls.test_fs):
-            mkdir(cls.test_fs)
-        os.environ["NEON_CONFIG_PATH"] = cls.test_fs
-
-        bus = FakeBus()
-        bus.run_in_thread()
-        skill_loader = SkillLoader(bus, dirname(dirname(__file__)))
-        skill_loader.load()
-        cls.skill = skill_loader.instance
-
-        # Override the configuration and fs paths to use the test directory
-        cls.skill.settings_write_path = cls.test_fs
-        cls.skill.file_system.path = cls.test_fs
-        cls.skill._init_settings()
-        cls.skill.initialize()
-
-        # Override speak and speak_dialog to test passed arguments
-        cls.skill.speak = Mock()
-        cls.skill.speak_dialog = Mock()
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        shutil.rmtree(cls.test_fs)
-
-    def setUp(self):
-        self.skill.speak.reset_mock()
-        self.skill.speak_dialog.reset_mock()
-        self.user_config = deepcopy(self.default_config)
+        SkillTestCase.setUpClass()
 
     def test_00_skill_init(self):
         # Test any parameters expected to be set in init or initialize methods
