@@ -1,1 +1,1 @@
-neon-minerva~=0.0, >=0.0.2a1
+neon-minerva[padatious]~=0.1

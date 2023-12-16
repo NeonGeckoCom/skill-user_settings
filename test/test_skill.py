@@ -27,6 +27,8 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import unittest
+from time import sleep
+
 import mock
 
 from copy import deepcopy
@@ -390,6 +392,7 @@ class TestSkill(SkillTestCase):
 
         # Change location same tz
         _init_test_message("location", "new york")
+        sleep(1)
         self.skill.handle_change_location_timezone(test_message)
         self.skill.ask_yesno.assert_called_once_with(
             "also_change_location_tz", {"type": "timezone", "new": "new york"})
@@ -410,6 +413,7 @@ class TestSkill(SkillTestCase):
 
         # Change tz same location
         _init_test_message("timezone", "phoenix")
+        sleep(1)
         self.skill.handle_change_location_timezone(test_message)
         self.skill.ask_yesno.assert_called_once_with(
             "also_change_location_tz", {"type": "location", "new": "phoenix"})
@@ -428,6 +432,7 @@ class TestSkill(SkillTestCase):
 
         # Change location and tz
         _init_test_message("location", "honolulu")
+        sleep(1)
         self.skill.handle_change_location_timezone(test_message)
         self.skill.ask_yesno.assert_called_once_with(
             "also_change_location_tz", {"type": "timezone", "new": "honolulu"})
@@ -455,6 +460,7 @@ class TestSkill(SkillTestCase):
 
         # Change tz and location
         _init_test_message("timezone", "phoenix")
+        sleep(1)
         self.skill.handle_change_location_timezone(test_message)
         self.skill.ask_yesno.assert_called_once_with(
             "also_change_location_tz", {"type": "location", "new": "phoenix"})
@@ -1371,6 +1377,7 @@ class TestSkill(SkillTestCase):
                                 "full_name": "first-name middle last senior"})
 
     def test_get_timezone_from_location(self):
+        sleep(1)
         name, offset = \
             self.skill._get_timezone_from_location(
                 self.skill._get_location_from_spoken_location("seattle"))
@@ -1383,6 +1390,7 @@ class TestSkill(SkillTestCase):
 
     def test_get_location_from_spoken_location(self):
         # Test 'city' case
+        sleep(1)
         address = self.skill._get_location_from_spoken_location("seattle")
         self.assertEqual(address['address']['city'], "Seattle")
         self.assertEqual(address['address']['state'], "Washington")
@@ -1391,6 +1399,7 @@ class TestSkill(SkillTestCase):
         self.assertIsInstance(address['lon'], str)
 
         # Test international case
+        sleep(1)
         address = self.skill._get_location_from_spoken_location("kyiv",
                                                                 "en-us")
         self.assertEqual(address['address']['city'], "Kyiv")
@@ -1399,6 +1408,7 @@ class TestSkill(SkillTestCase):
         self.assertIsInstance(address['lon'], str)
 
         # Test 'town' case
+        sleep(1)
         address = self.skill._get_location_from_spoken_location(
             "kirkland washington")
         self.assertEqual(address['address']['city'], "Kirkland")
@@ -1408,6 +1418,7 @@ class TestSkill(SkillTestCase):
         self.assertIsInstance(address['lon'], str)
 
         # Test 'village' case
+        sleep(1)
         address = self.skill._get_location_from_spoken_location(
             "orchard city colorado")
         self.assertEqual(address["address"]["city"], "Orchard City")
