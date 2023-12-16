@@ -423,13 +423,13 @@ class UserSettingsSkill(NeonSkill):
             return
         utterance = message.data.get("utterance")
         profile = get_user_prefs(message)
-
+        # a 32-char username is a generated UID, not a real username
+        real_username = len(profile["user"]["username"]) < 32
         if not any((profile["user"]["first_name"],
                     profile["user"]["middle_name"],
                     profile["user"]["last_name"],
                     profile["user"]["preferred_name"],
-                    profile["user"]["full_name"],
-                    profile["user"]["username"])):
+                    profile["user"]["full_name"])) and not real_username:
             # TODO: Use get_response to ask for the user's name
             self.speak_dialog(
                 "name_not_known",
@@ -680,11 +680,14 @@ class UserSettingsSkill(NeonSkill):
                     .require("rx_name").build())
     def handle_set_my_name(self, message: Message):
         """
-        Handle a request to set a user's name
+        Handle a request to set a user's name. Some considerations for name
+        parsing can be found from w3c:
+        https://www.w3.org/International/questions/qa-personal-names
         :param message: Message associated with request
         """
         if not self.neon_in_request(message):
             return
+        confirmed = True
         utterance = message.data.get("utterance")
         name = message.data.get("rx_setting") or message.data.get("rx_name")
         if self.voc_match(utterance, "first_name"):
@@ -708,13 +711,23 @@ class UserSettingsSkill(NeonSkill):
 
         user_profile = get_user_prefs(message)["user"]
 
-        if request:
+        # Catch an invalid intent match
+        if (request and len(name.split()) > 3) or len(name.split()) > 4:
+            LOG.warning(f"'{name}' does not look like a {request} name.")
+            confirmed = self.ask_yesno("name_confirm_change",
+                                       {"position": self.translate(
+                                           f"word_{request or 'name'}"),
+                                        "name": name})
+
+        if not confirmed:
+            self.speak_dialog("name_not_confirmed", private=True)
+        elif request:
             if name == user_profile[request]:
                 self.speak_dialog(
                     "name_not_changed",
                     {"position": self.translate(f"word_{request}"),
                      "name": name}, private=True)
-            else:
+            elif confirmed:
                 name_parts = (name if request == n else user_profile.get(n)
                               for n in ("first_name", "middle_name",
                                         "last_name"))
@@ -1085,6 +1098,7 @@ class UserSettingsSkill(NeonSkill):
                     "last_name": name_parts[2]}
         else:
             LOG.warning(f"Longer name than expected: {name}")
+            # TODO: Better logic here
             name = {"first_name": name_parts[0],
                     "middle_name": name_parts[1],
                     "last_name": " ".join(name_parts[2:])}

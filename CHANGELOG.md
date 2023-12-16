@@ -1,12 +1,28 @@
 # Changelog
 
-## [1.0.3a1](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.3a1) (2023-08-07)
+## [1.0.4a3](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.4a3) (2023-12-16)
 
-[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.2...1.0.3a1)
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.4a2...1.0.4a3)
 
 **Merged pull requests:**
 
-- Fix TTS Intent Language Bug [\#100](https://github.com/NeonGeckoCom/skill-user_settings/pull/100) ([NeonDaniel](https://github.com/NeonDaniel))
+- Update test dependencies to stable specs [\#104](https://github.com/NeonGeckoCom/skill-user_settings/pull/104) ([NeonDaniel](https://github.com/NeonDaniel))
+
+## [1.0.4a2](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.4a2) (2023-11-20)
+
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.4a1...1.0.4a2)
+
+**Merged pull requests:**
+
+- Feat catch unlikely long names [\#103](https://github.com/NeonGeckoCom/skill-user_settings/pull/103) ([NeonDaniel](https://github.com/NeonDaniel))
+
+## [1.0.4a1](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.4a1) (2023-11-02)
+
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.3...1.0.4a1)
+
+**Merged pull requests:**
+
+- Remove username example from README [\#102](https://github.com/NeonGeckoCom/skill-user_settings/pull/102) ([strugee](https://github.com/strugee))
 
 
 

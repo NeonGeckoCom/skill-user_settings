@@ -35,7 +35,6 @@ Neon can help you control your user preference settings via this skill.
 * Tell me my name.
 * Tell me my first name.
 * Tell me my last name.
-* Tell me my username.
 
 * Tell me my email address.
 
