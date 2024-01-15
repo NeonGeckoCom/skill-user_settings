@@ -528,15 +528,17 @@ class TestSkill(SkillTestCase):
     def test_handle_say_my_name(self):
         test_profile = self.user_config
         test_message = Message("test", {},
-                               {"username": "test_user",
+                               {"username": "local",
                                 "user_profiles": [test_profile]})
 
-        # No name set
+        # No name set for local user
         self.skill.handle_say_my_name(test_message)
         self.skill.speak_dialog.assert_called_with("name_not_known",
                                                    {"name_position": "name"},
                                                    private=True)
 
+        # Profile for requesting user set
+        test_message.context["username"] = "test_user"
         test_message.context["user_profiles"][0]["user"]["username"] = \
             "test_user"
         # first name not known
