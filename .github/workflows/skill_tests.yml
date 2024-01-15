@@ -11,7 +11,7 @@ jobs:
   skill_unit_tests:
     uses: neongeckocom/.github/.github/workflows/skill_tests.yml@master
   skill_intent_tests:
-    uses: neongeckocom/.github/.github/workflows/skill_test_intents.yml@master
+    uses: neongeckocom/.github/.github/workflows/skill_test_intents.yml@FEAT_MinervaIntentTests
     with:
       timeout: 15
   skill_resource_tests:
