@@ -20,7 +20,199 @@
 #        - expected_vocab_key: expected_vocab_value
 #        - expected_entity_key: expected_entity_value
 
+en-us:
+  ChangeUnits:
+  - use metric units:
+      - metric
+  - use imperial units:
+      - imperial
+  - change my units to metric:
+      - metric
+  - change my units to SAE:
+      - imperial
+  - use british customary units:
+      - imperial
+  ChangeTime:
+    - use 12 hour time:
+        - half
+    - change to twelve hour time:
+        - half
+    - use 24 hour time:
+        - full
+    - use twenty-four hour time:
+        - full
+    - change to military time:
+        - full
+  ChangeDate:
+    - use year month day date format:
+        - ymd
+    - change date format to month day year:
+        - mdy
+    - change to day month year date format:
+        - dmy
+  SetHesitation:
+    - enable hesitation:
+        - permit
+    - disable hesitation:
+        - deny
+    - start speaking lookup confirmations:
+        - permit
+    - stop providing look up confirmation:
+        - deny
+  Transcription:
+    - permit text transcription:
+        - permit
+        - text
+    - stop saving audio files:
+        - deny
+        - audio
+    - disable voice recording retention:
+        - deny
+        - audio
+    - enable audio recordings
+    - disable transcriptions
+    - permit transcriptions
+  SpeakSpeed:
+    - talk to me faster
+    - speak to me normally
+    - talk to me more slowly
+  ChangeLocationTimezone:
+    - set my location to Seattle:
+        - location
+        - rx_place: seattle
+    - change my timezone to mountain time:
+        - timezone
+        - rx_place: mountain time
+    - change my location to orchard city colorado:
+      - rx_place: orchard city colorado
+  ChangeDialog:
+    - set my dialog mode to use limited responses:
+        - limited
+    - enable random dialog mode:
+        - random
+    - use primary responses:
+        - limited
+    - start using normal responses:
+        - random
+  SayMyName:
+    - tell me my name
+    - what is my name
+    - do you know my first name?
+    - tell me my first name
+    - tell me my username
+  SayMyEmail:
+    - tell me my email
+    - do you know my email address
+    - can you read back my email address
+  SayMyLocation:
+    - tell me my location
+    - can you tell me my location
+    - do you know my location
+  where_am_i.intent:
+    - where am I
+    - tell me where I am
+    - what is my location
+  SetMyBirthday:
+    - set my birthday to december 7
+    - I was born on January 1, 1990
+    - My birthday is tomorrow
+  SetMyEmail:
+# TODO: Fix parsing of '.' in email address
+#    - my email address is developers@neon.ai:
+#        - rx_setting: developers@neon.ai
+    - my email address is developers at neon dot ai:
+        - rx_setting: developers at neon dot ai
+#    - update my email to test@dev.to:
+#        - rx_setting: test@dev.to
+    - can you set my email address to test at dev dot to:
+        - rx_setting: test at dev dot to
+  SetMyName:
+    - change my first name to test:
+        - rx_setting: test
+    - update my middle name to tester:
+        - rx_setting: tester
+    - my middle name is a test:
+        - rx_setting: a test
+    - change my preferred name to dan:
+        - rx_setting: dan
+  MyNameIs:
+    - my user name is testing:
+        - rx_name: testing
+    - my username is test:
+        - rx_name: test
+    - my name is test user:
+        - rx_name: test user
+    - call me anything:
+        - rx_name: anything
+    - refer to me as user:
+        - rx_name: user
+  SayMyLanguageSettings:
+    - tell me my language settings
+    - read back my tts settings
+  language_settings.intent:
+    - what is my language
+    - what are my language settings
+  SetSTTLanguage:
+    - change my input language to something to test:
+        - rx_language: something to test
+    - update my spoken language to english:
+        - rx_language: english
+    - set STT language to Spanish:
+        - rx_language: spanish
+  language_stt.intent:
+    - i speak british english:
+        - request_language: british english
+    - I will speak to you in french:
+        - request_language: french
+  SetTTSLanguage:
+    - change my output language to some test:
+        - rx_language: some test
+    - update my response language to spanish:
+        - rx_language: spanish
+    - set my text to speech language to german:
+        - rx_language: german
+  language_tts.intent:
+    - talk to me in japanese:
+        - request_language: japanese
+    - speak to me in canadian french:
+        - request_language: canadian french
+    - speak to me in spanish:
+        - request_language: spanish
+  SetMyLanguage:
+    - my preferred language is ukrainian:
+        - language
+        - preferred
+        - rx_language: ukrainian
+    - change my language to korean:
+        - language
+        - rx_language: korean
+    - update my language setting to slovenian:
+        - language
+        - rx_language: slovenian
+    - set my preferred language to italian:
+        - language
+        - preferred
+        - rx_language: italian
+    - change my secondary language to ukrainian:
+        - language
+        - second
+        - rx_language: ukrainian
+  NoSecondaryLanguage:
+    - no secondary language
+    - just use my primary language
+    - respond in my primary language only
+    - stop responding in two languages
+    - stop replying in two languages
+  who_am_i.intent:
+    - who am I
+  SayMyBirthday:
+    - tell me my birthday
+    - what is my birthday
+  when_is_my_birthday.intent:
+    - when is my birthday
+    - do you know when my birthday is
 
+    
 uk-ua:
   ChangeUnits:
   - зміна метричний одиниці:
