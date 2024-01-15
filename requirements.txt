@@ -1,3 +1,4 @@
 neon-utils[network]~=1.4
 ovos-utils~=0.0.32
 ovos-bus-client~=0.0.3
+neon-minerva[padatious]~=0.1,>=0.1.1a1
