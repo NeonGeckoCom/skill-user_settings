@@ -254,7 +254,14 @@ uk-ua:
     - говори зі мною швидше
     - поговори зі мною нормально
     - говори зі мною повільно
-        
+  ChangeLocationTimezone:
+    - зміни мою місцезнаходження на Сієтл:
+        - location
+        - rx_place: seattle
+    - зміни мій часовий пояс на гірський час:
+        - timezone
+        - rx_place: mountain time
+   
   
 unmatched intents:
   en-us:
