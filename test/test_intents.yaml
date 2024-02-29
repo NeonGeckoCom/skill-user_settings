@@ -225,6 +225,11 @@ uk-ua:
       - imperial
   - зміна британський звичайний одиниці:
       - imperial
+  ChangeTime:
+    - використовуй 12-годинний час:
+        - half
+    - використовуй повний час:
+        - full
 
 
 unmatched intents:
