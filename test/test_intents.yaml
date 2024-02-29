@@ -257,10 +257,10 @@ uk-ua:
   ChangeLocationTimezone:
     - зміни мою місцезнаходження на Сієтл:
         - location
-        - rx_place: seattle
+        - rx_place: сієтл
     - зміни мій часовий пояс на гірський час:
         - timezone
-        - rx_place: mountain time
+        - rx_place: гірський час
    
   
 unmatched intents:
