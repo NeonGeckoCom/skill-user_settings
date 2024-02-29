@@ -237,7 +237,7 @@ uk-ua:
         - mdy
     - оновлення день місяць рік дата:
         - dmy
- Transcription:
+  Transcription:
     - почати текст транскрипція:
         - permit
         - text
