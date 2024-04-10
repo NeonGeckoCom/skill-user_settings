@@ -1,28 +1,28 @@
 # Changelog
 
-## [1.0.4a3](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.4a3) (2023-12-16)
+## [1.0.5a3](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.5a3) (2024-04-10)
 
-[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.4a2...1.0.4a3)
-
-**Merged pull requests:**
-
-- Update test dependencies to stable specs [\#104](https://github.com/NeonGeckoCom/skill-user_settings/pull/104) ([NeonDaniel](https://github.com/NeonDaniel))
-
-## [1.0.4a2](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.4a2) (2023-11-20)
-
-[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.4a1...1.0.4a2)
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.5a2...1.0.5a3)
 
 **Merged pull requests:**
 
-- Feat catch unlikely long names [\#103](https://github.com/NeonGeckoCom/skill-user_settings/pull/103) ([NeonDaniel](https://github.com/NeonDaniel))
+- Update test dependency and fix docstring [\#109](https://github.com/NeonGeckoCom/skill-user_settings/pull/109) ([NeonDaniel](https://github.com/NeonDaniel))
 
-## [1.0.4a1](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.4a1) (2023-11-02)
+## [1.0.5a2](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.5a2) (2024-02-05)
 
-[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.3...1.0.4a1)
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.5a1...1.0.5a2)
 
 **Merged pull requests:**
 
-- Remove username example from README [\#102](https://github.com/NeonGeckoCom/skill-user_settings/pull/102) ([strugee](https://github.com/strugee))
+- Support ovos-utils 0.1 [\#107](https://github.com/NeonGeckoCom/skill-user_settings/pull/107) ([NeonDaniel](https://github.com/NeonDaniel))
+
+## [1.0.5a1](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.5a1) (2024-01-15)
+
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.4...1.0.5a1)
+
+**Merged pull requests:**
+
+- Update test dependencies and test case to resolve failures [\#106](https://github.com/NeonGeckoCom/skill-user_settings/pull/106) ([NeonDaniel](https://github.com/NeonDaniel))
 
 
 
