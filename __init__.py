@@ -1073,7 +1073,7 @@ class UserSettingsSkill(NeonSkill):
 
     def _spoken_email(self, email_addr: str):
         """
-        Get a pronouncable email address string
+        Get a pronounceable email address string
         """
         return email_addr.replace('.', f' {self.translate("word_dot")} ')\
             .replace('@', f' {self.translate("word_at")} ')
