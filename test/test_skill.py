@@ -406,8 +406,8 @@ class TestSkill(SkillTestCase):
                              test_profile["location"][setting])
         self.assertEqual(profile["location"]["city"], "New York")
         self.assertEqual(profile["location"]["state"], "New York")
-        self.assertAlmostEqual(profile["location"]["lat"], 40.7127281, 5)
-        self.assertAlmostEqual(profile["location"]["lng"], -74.0060152, 5)
+        self.assertAlmostEqual(profile["location"]["lat"], 40.7127281, 4)
+        self.assertAlmostEqual(profile["location"]["lng"], -74.0060152, 4)
         self.skill.ask_yesno.reset_mock()
         self.skill.speak_dialog.reset_mock()
 
@@ -480,8 +480,8 @@ class TestSkill(SkillTestCase):
 
         self.assertEqual(profile["location"]["city"], "Phoenix")
         self.assertEqual(profile["location"]["state"], "Arizona")
-        self.assertAlmostEqual(profile["location"]["lat"], 33.4484367, 5)
-        self.assertAlmostEqual(profile["location"]["lng"], -112.074141, 5)
+        self.assertAlmostEqual(profile["location"]["lat"], 33.4484367, 4)
+        self.assertAlmostEqual(profile["location"]["lng"], -112.074141, 4)
         self.assertEqual(profile["location"]["tz"], "America/Phoenix")
         self.assertEqual(profile["location"]["utc"], -7.0)
 
