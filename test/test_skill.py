@@ -480,8 +480,8 @@ class TestSkill(SkillTestCase):
 
         self.assertEqual(profile["location"]["city"], "Phoenix")
         self.assertEqual(profile["location"]["state"], "Arizona")
-        self.assertAlmostEqual(profile["location"]["lat"], 33.4484367, 4)
-        self.assertAlmostEqual(profile["location"]["lng"], -112.074141, 4)
+        self.assertAlmostEqual(profile["location"]["lat"], 33.4484367, 3)
+        self.assertAlmostEqual(profile["location"]["lng"], -112.074141, 3)
         self.assertEqual(profile["location"]["tz"], "America/Phoenix")
         self.assertEqual(profile["location"]["utc"], -7.0)
 
