@@ -47,8 +47,8 @@ from ovos_utils.file_utils import read_vocab_file
 from ovos_utils import classproperty
 from ovos_utils.log import LOG
 from ovos_utils.process_utils import RuntimeRequirements
-from mycroft.skills.core import intent_handler, intent_file_handler
-from mycroft.util.parse import extract_datetime
+from ovos_workshop.skills.decorators import intent_handler
+from lingua_franca.parse import extract_datetime
 
 
 class UserSettingsSkill(NeonSkill):
@@ -413,7 +413,7 @@ class UserSettingsSkill(NeonSkill):
 
     @intent_handler(IntentBuilder("SayMyName").require("tell_me_my")
                     .require("name").build())
-    @intent_file_handler("who_am_i.intent")
+    @intent_handler("who_am_i.intent")
     def handle_say_my_name(self, message: Message):
         """
         Handle a request to read back a user's name
@@ -493,7 +493,7 @@ class UserSettingsSkill(NeonSkill):
 
     @intent_handler(IntentBuilder("SayMyLocation").require("tell_me_my")
                     .require("location").build())
-    @intent_file_handler("where_am_i.intent")
+    @intent_handler("where_am_i.intent")
     def handle_say_my_location(self, message: Message):
         """
         Handle a request to read back the user's location
@@ -520,7 +520,7 @@ class UserSettingsSkill(NeonSkill):
 
     @intent_handler(IntentBuilder("SayMyBirthday").require("tell_me_my")
                     .require("birthday").build())
-    @intent_file_handler("when_is_my_birthday.intent")
+    @intent_handler("when_is_my_birthday.intent")
     def handle_say_my_birthday(self, message: Message):
         """
         Handle a request to read back the user's birthday
@@ -762,7 +762,7 @@ class UserSettingsSkill(NeonSkill):
     @intent_handler(IntentBuilder("SayMyLanguageSettings")
                     .require("tell_me_my").require("language_settings")
                     .build())
-    @intent_file_handler("language_settings.intent")
+    @intent_handler("language_settings.intent")
     def handle_say_my_language_settings(self, message: Message):
         """
         Handle a request to read back the user's language settings
@@ -793,7 +793,7 @@ class UserSettingsSkill(NeonSkill):
     @intent_handler(IntentBuilder("SetSTTLanguage").require("change")
                     .optionally("my").require("language_stt")
                     .require("language").require("rx_language").build())
-    @intent_file_handler("language_stt.intent")
+    @intent_handler("language_stt.intent")
     def handle_set_stt_language(self, message: Message):
         """
         Handle a request to change the language spoken by the user
@@ -837,7 +837,7 @@ class UserSettingsSkill(NeonSkill):
     @intent_handler(IntentBuilder("SetTTSLanguage").require("change")
                     .optionally("my").require("language_tts")
                     .require("language").require("rx_language").build())
-    @intent_file_handler("language_tts.intent")
+    @intent_handler("language_tts.intent")
     def handle_set_tts_language(self, message: Message):
         """
         Handle a request to change the language spoken to the user
