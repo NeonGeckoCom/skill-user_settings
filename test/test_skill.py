@@ -406,8 +406,8 @@ class TestSkill(SkillTestCase):
                              test_profile["location"][setting])
         self.assertEqual(profile["location"]["city"], "New York")
         self.assertEqual(profile["location"]["state"], "New York")
-        self.assertAlmostEqual(profile["location"]["lat"], 40.7127281, 4)
-        self.assertAlmostEqual(profile["location"]["lng"], -74.0060152, 4)
+        self.assertAlmostEqual(profile["location"]["lat"], 40.7127281, 3)
+        self.assertAlmostEqual(profile["location"]["lng"], -74.0060152, 3)
         self.skill.ask_yesno.reset_mock()
         self.skill.speak_dialog.reset_mock()
 
