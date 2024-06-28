@@ -1,1 +1,2 @@
 neon-minerva[padatious]~=0.2
+#ovos-lingua-franca~=0.4,>=0.4.8a12
