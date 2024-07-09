@@ -27,10 +27,10 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import unittest
-from time import sleep
-
 import mock
+import os
 
+from time import sleep
 from copy import deepcopy
 from datetime import datetime
 from typing import Optional
@@ -42,6 +42,9 @@ from neon_utils.language_utils import SupportedLanguages
 from ovos_bus_client import Message
 
 from neon_minerva.tests.skill_unit_test_base import SkillTestCase
+
+
+os.environ["TEST_SKILL_ENTRYPOINT"] = "skill-user_settings.neongeckocom"
 
 
 class TestSkill(SkillTestCase):
@@ -849,8 +852,8 @@ class TestSkill(SkillTestCase):
                                 "user_profiles": [test_profile]})
 
         # Set first name
-        test_message.data["utterance"] = "my first name is daniel"
-        test_message.data["rx_setting"] = "daniel"
+        test_message.data["utterance"] = "my first name is daniel."
+        test_message.data["rx_setting"] = "daniel ."
         self.skill.handle_set_my_name(test_message)
         self.skill.speak_dialog.assert_called_with("name_set_part",
                                                    {"position": "first name",

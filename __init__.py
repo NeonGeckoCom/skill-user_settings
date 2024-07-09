@@ -699,6 +699,9 @@ class UserSettingsSkill(NeonSkill):
         confirmed = True
         utterance = message.data.get("utterance")
         name = message.data.get("rx_setting") or message.data.get("rx_name")
+        # Remove trailing '.' from parsed name
+        if name.split()[-1] == '.':
+            name = ' '.join(name.split()[:-1])
         if self.voc_match(utterance, "first_name"):
             request = "first_name"
             name = name.title()
