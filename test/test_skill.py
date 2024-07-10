@@ -432,13 +432,14 @@ class TestSkill(SkillTestCase):
 
         # Change location and tz
         _init_test_message("location", "honolulu")
+        new_city = "Honolulu County"  # TODO: This is semi-variable as the map API changes
         sleep(1)
         self.skill.handle_change_location_timezone(test_message)
         self.skill.ask_yesno.assert_called_once_with(
             "also_change_location_tz", {"type": "timezone", "new": "honolulu"})
         self.skill.speak_dialog.assert_has_calls((
             call("change_location_tz",
-                 {"type": "location", "location": "Honolulu"}, private=True),
+                 {"type": "location", "location": new_city}, private=True),
             call("change_location_tz",
                  {"type": "timezone", "location": "UTC -10.0"}, private=True)),
             True)
@@ -448,7 +449,7 @@ class TestSkill(SkillTestCase):
         for setting in unchanged:
             self.assertEqual(profile["location"][setting],
                              test_profile["location"][setting])
-        self.assertEqual(profile["location"]["city"], "Honolulu")
+        self.assertEqual(profile["location"]["city"], new_city)
         self.assertEqual(profile["location"]["state"], "Hawaii")
         self.assertAlmostEqual(profile["location"]["lat"], 21.2890997, 0)
         self.assertAlmostEqual(profile["location"]["lng"], -157.717299, 0)
