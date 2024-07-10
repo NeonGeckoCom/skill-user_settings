@@ -761,7 +761,7 @@ class UserSettingsSkill(NeonSkill):
                 self.speak_dialog("name_not_changed",
                                   {"position": self.resources.render_dialog(
                                       f"word_name"),
-                                   "name": name})
+                                      "name": name})
             else:
                 update_user_profile({"user": updated_user_profile},
                                     message, self.bus)
@@ -887,7 +887,7 @@ class UserSettingsSkill(NeonSkill):
                 self.speak_dialog("language_set",
                                   {"io": self.resources.render_dialog(
                                       "word_primary"),
-                                   "lang": primary_spoken}, private=True)
+                                      "lang": primary_spoken}, private=True)
             except UnsupportedLanguageError:
                 LOG.warning(f"No language for primary request: {primary}")
                 self.speak_dialog("language_not_recognized", {"lang": primary},
@@ -916,7 +916,7 @@ class UserSettingsSkill(NeonSkill):
                 self.speak_dialog("language_set",
                                   {"io": self.resources.render_dialog(
                                       "word_secondary"),
-                                   "lang": secondary_spoken}, private=True)
+                                      "lang": secondary_spoken}, private=True)
             except UnsupportedLanguageError:
                 LOG.warning(f"No language for secondary request: {secondary}")
                 self.speak_dialog("language_not_recognized",
@@ -945,7 +945,7 @@ class UserSettingsSkill(NeonSkill):
                 self.speak_dialog("language_set",
                                   {"io": self.resources.render_dialog(
                                       "word_primary"),
-                                   "lang": spoken}, private=True)
+                                      "lang": spoken}, private=True)
             except UnsupportedLanguageError:
                 LOG.warning(f"No language for secondary request: {language}")
                 self.speak_dialog("language_not_recognized",
@@ -1161,8 +1161,12 @@ class UserSettingsSkill(NeonSkill):
                 LOG.warning(f"Could not locate: {location}")
                 return None
             if not place['address'].get("city"):
+                # TODO: Delegate this to `get_full_location`
                 LOG.warning(f"No city specified in {place['address']}")
-                place['address']['city'] = place['address'].get('county')
+                place['address']['city'] = place["address"].get("town") or \
+                    place["address"].get("village") or \
+                    place["address"].get("hamlet") or \
+                    place['address'].get('county')
         except AttributeError:
             LOG.warning(f"Could not locate: {location}")
             return None
