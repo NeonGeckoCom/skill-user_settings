@@ -682,6 +682,18 @@ class UserSettingsSkill(NeonSkill):
         self.remove_event(close_message)
         return gui_response
 
+    @staticmethod
+    def _normalize_name(name: str) -> str:
+        """
+        Normalize an input name
+        @param name: the input name parsed from user utterance
+        @return: normalized name
+        """
+        name = re.sub(r'[\'".,\d]', '', name)
+        name = name.strip().title()
+        LOG.debug(f"Parsed: {name}")
+        return name
+
     @intent_handler(IntentBuilder("SetMyName").optionally("change")
                     .require("my").require("name").require("rx_setting")
                     .build())
@@ -699,23 +711,21 @@ class UserSettingsSkill(NeonSkill):
         confirmed = True
         utterance = message.data.get("utterance")
         name = message.data.get("rx_setting") or message.data.get("rx_name")
-        if self.voc_match(utterance, "first_name"):
-            request = "first_name"
-            name = name.title()
-        elif self.voc_match(utterance, "middle_name"):
-            name = name.title()
-            request = "middle_name"
-        elif self.voc_match(utterance, "last_name"):
-            name = name.title()
-            request = "last_name"
-        elif self.voc_match(utterance, "preferred_name"):
-            name = name.title()
-            request = "preferred_name"
-        elif self.voc_match(utterance, "username"):
+
+        if self.voc_match(utterance, "username"):
             self.speak_dialog("error_change_username", private=True)
             return
+
+        name = self._normalize_name(name)
+        if self.voc_match(utterance, "first_name"):
+            request = "first_name"
+        elif self.voc_match(utterance, "middle_name"):
+            request = "middle_name"
+        elif self.voc_match(utterance, "last_name"):
+            request = "last_name"
+        elif self.voc_match(utterance, "preferred_name"):
+            request = "preferred_name"
         else:
-            name = name.title()
             request = None
 
         user_profile = get_user_prefs(message)["user"]

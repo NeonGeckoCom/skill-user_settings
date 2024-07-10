@@ -135,6 +135,8 @@ en-us:
         - rx_setting: a test
     - change my preferred name to dan:
         - rx_setting: dan
+    - my first name is daniel.:
+        - rx_setting: daniel .
   MyNameIs:
     - my user name is testing:
         - rx_name: testing
@@ -146,6 +148,8 @@ en-us:
         - rx_name: anything
     - refer to me as user:
         - rx_name: user
+    - my name is Daniel.:
+        - rx_name: daniel .
   SayMyLanguageSettings:
     - tell me my language settings
     - read back my tts settings
