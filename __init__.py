@@ -182,7 +182,7 @@ class UserSettingsSkill(NeonSkill):
                               private=True)
         else:
             updated_prefs = {"units": {"measure": new_unit}}
-            update_user_profile(updated_prefs, message)
+            update_user_profile(updated_prefs, message, self.bus)
             self.speak_dialog("units_changed",
                               {"unit": self.resources.render_dialog(f"word_{new_unit}")},
                               private=True)
@@ -206,7 +206,7 @@ class UserSettingsSkill(NeonSkill):
                               {"scale": str(new_setting)}, private=True)
         else:
             updated_prefs = {"units": {"time": new_setting}}
-            update_user_profile(updated_prefs, message)
+            update_user_profile(updated_prefs, message, self.bus)
             self.speak_dialog("time_format_changed",
                               {"scale": str(new_setting)}, private=True)
 
@@ -230,7 +230,7 @@ class UserSettingsSkill(NeonSkill):
                               private=True)
         else:
             updated_prefs = {"units": {"date": new_setting}}
-            update_user_profile(updated_prefs, message)
+            update_user_profile(updated_prefs, message, self.bus)
             self.speak_dialog("date_format_changed",
                               {"format": message.data.get(new_setting.lower())},
                               private=True)
@@ -244,7 +244,8 @@ class UserSettingsSkill(NeonSkill):
         :param message: Message associated with request
         """
         enabled = True if message.data.get("permit") else False
-        update_user_profile({"response_mode": {"hesitation": enabled}})
+        update_user_profile({"response_mode": {"hesitation": enabled}},
+                            message, self.bus)
         if enabled:
             self.speak_dialog("hesitation_enabled", private=True)
         else:
@@ -276,7 +277,7 @@ class UserSettingsSkill(NeonSkill):
                               private=True)
         else:
             updated_prefs = {"privacy": {kind: allow}}
-            update_user_profile(updated_prefs, message)
+            update_user_profile(updated_prefs, message, self.bus)
             self.speak_dialog("transcription_changed",
                               {"transcription": self.resources.render_dialog(transcription),
                                "enabled": self.resources.render_dialog(enabled)},
@@ -306,7 +307,8 @@ class UserSettingsSkill(NeonSkill):
             speed = self.MAX_SPEECH_SPEED
 
         speed = round(speed, 1)
-        update_user_profile({"speech": {"speed_multiplier": speed}})
+        update_user_profile({"speech": {"speed_multiplier": speed}},
+                            message, self.bus)
 
         if speed == current_speed == self.MAX_SPEECH_SPEED:
             self.speak_dialog("speech_speed_limit",
@@ -365,7 +367,8 @@ class UserSettingsSkill(NeonSkill):
         if do_timezone:
             LOG.info(f"Update timezone: {tz_name}|{utc_offset}")
             update_user_profile({"location": {"tz": tz_name,
-                                              "utc": utc_offset}})
+                                              "utc": utc_offset}},
+                                message, self.bus)
             self.speak_dialog("change_location_tz",
                               {"type": self.resources.render_dialog("word_timezone"),
                                "location": f"UTC {utc_offset}"},
@@ -377,7 +380,7 @@ class UserSettingsSkill(NeonSkill):
                 'state': resolved_place['address'].get('state'),
                 'country': resolved_place['address']['country'],
                 'lat': float(resolved_place['lat']),
-                'lng': float(resolved_place['lon'])}})
+                'lng': float(resolved_place['lon'])}}, message, self.bus)
             self.speak_dialog("change_location_tz",
                               {"type": self.resources.render_dialog("word_location"),
                                "location": resolved_place['address']['city']},
@@ -407,7 +410,8 @@ class UserSettingsSkill(NeonSkill):
             return
 
         update_user_profile(
-            {"response_mode": {"limit_dialog": new_limit_dialog}})
+            {"response_mode": {"limit_dialog": new_limit_dialog}},
+            message, self.bus)
         self.speak_dialog("dialog_mode_changed",
                           {"response": self.resources.render_dialog(new_dialog)},
                           private=True)
@@ -571,7 +575,8 @@ class UserSettingsSkill(NeonSkill):
         # speakable_birthday = nice_date(birth_date, now=anchor_date)
         speakable_birthday = birth_date.strftime("%B %-d")
 
-        update_user_profile({"user": {"dob": formatted_birthday}}, message)
+        update_user_profile({"user": {"dob": formatted_birthday}},
+                            message, self.bus)
         self.speak_dialog("birthday_confirmed",
                           {"birthday": speakable_birthday}, private=True)
 
@@ -620,7 +625,8 @@ class UserSettingsSkill(NeonSkill):
             if self.ask_yesno("email_overwrite",
                               {"old": self._spoken_email(current_email),
                                "new": self._spoken_email(email_addr)}) == "yes":
-                update_user_profile({"user": {"email": email_addr}})
+                update_user_profile({"user": {"email": email_addr}},
+                                    message, self.bus)
                 self.speak_dialog("email_set",
                                   {"email": self._spoken_email(email_addr)},
                                   private=True)
@@ -631,7 +637,8 @@ class UserSettingsSkill(NeonSkill):
             return
         if self.ask_yesno("email_confirmation",
                           {"email": self._spoken_email(email_addr)}) == "yes":
-            update_user_profile({"user": {"email": email_addr}})
+            update_user_profile({"user": {"email": email_addr}},
+                                message, self.bus)
             self.speak_dialog("email_set",
                               {"email": self._spoken_email(email_addr)},
                               private=True)
@@ -640,7 +647,8 @@ class UserSettingsSkill(NeonSkill):
             email_addr = self.get_gui_input(self.resources.render_dialog("word_email_title"),
                                             "test@neon.ai")
             if email_addr:
-                update_user_profile({"user": {"email": email_addr}})
+                update_user_profile({"user": {"email": email_addr}},
+                                    message, self.bus)
                 self.speak_dialog("email_set",
                                   {"email": self._spoken_email(email_addr)},
                                   private=True)
@@ -735,7 +743,7 @@ class UserSettingsSkill(NeonSkill):
                 full_name = " ".join((n for n in name_parts if n))
                 update_user_profile({"user": {request: name,
                                               "full_name": full_name}},
-                                    message)
+                                    message, self.bus)
                 self.speak_dialog(
                     "name_set_part",
                     {"position": self.resources.render_dialog(f"word_{request}"),
@@ -755,7 +763,8 @@ class UserSettingsSkill(NeonSkill):
                                       f"word_name"),
                                    "name": name})
             else:
-                update_user_profile({"user": updated_user_profile}, message)
+                update_user_profile({"user": updated_user_profile},
+                                    message, self.bus)
                 self.speak_dialog("name_set_full",
                                   {"nick": preferred_name,
                                    "name": name_parts["full_name"]},
@@ -832,7 +841,8 @@ class UserSettingsSkill(NeonSkill):
 
         if self.ask_yesno("language_change_confirmation",
                           dialog_data) == "yes":
-            update_user_profile({"speech": {"stt_language": code}})
+            update_user_profile({"speech": {"stt_language": code}},
+                                message, self.bus)
             self.speak_dialog("language_set", dialog_data,
                               private=True)
         else:
@@ -873,7 +883,7 @@ class UserSettingsSkill(NeonSkill):
                          user_settings["speech"]["tts_gender"]
                 update_user_profile({"speech": {"tts_gender": gender,
                                                 "tts_language": primary_code}},
-                                    message)
+                                    message, self.bus)
                 self.speak_dialog("language_set",
                                   {"io": self.resources.render_dialog(
                                       "word_primary"),
@@ -902,7 +912,7 @@ class UserSettingsSkill(NeonSkill):
                 update_user_profile(
                     {"speech": {"secondary_tts_gender": gender,
                                 "secondary_tts_language": secondary_code}},
-                    message)
+                    message, self.bus)
                 self.speak_dialog("language_set",
                                   {"io": self.resources.render_dialog(
                                       "word_secondary"),
@@ -931,7 +941,7 @@ class UserSettingsSkill(NeonSkill):
                          user_settings["speech"]["tts_gender"]
                 update_user_profile({"speech": {"tts_gender": gender,
                                                 "tts_language": code}},
-                                    message)
+                                    message, self.bus)
                 self.speak_dialog("language_set",
                                   {"io": self.resources.render_dialog(
                                       "word_primary"),
@@ -988,7 +998,7 @@ class UserSettingsSkill(NeonSkill):
         """
         update_user_profile({"speech": {"secondary_tts_language": "",
                                         "secondary_neon_voice": ""}},
-                            message)
+                            message, self.bus)
         self.speak_dialog("only_one_language", private=True)
 
     def _emit_weather_update(self, message: Message):
