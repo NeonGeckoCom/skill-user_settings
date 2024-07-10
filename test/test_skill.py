@@ -1537,6 +1537,24 @@ class TestSkill(SkillTestCase):
         self.assertEqual(self.skill._spoken_email("my.email@domain.com"),
                          "my dot email at domain dot com")
 
+    def test_normalize_name(self):
+        valid_name = "Daniel"
+        invalid_punctuation = "Daniel ."
+        invalid_with_quotes = 'daniel "'
+        invalid_with_number = "DANIEL 1 2 3"
+
+        self.assertEqual(self.skill._normalize_name(invalid_punctuation),
+                         valid_name)
+        self.assertEqual(self.skill._normalize_name(invalid_with_quotes),
+                         valid_name)
+        self.assertEqual(self.skill._normalize_name(invalid_with_number),
+                         valid_name)
+
+        valid_full_name = "D-J Mcknight"
+        uncleaned_name = "d-j mcknight . "
+        self.assertEqual(self.skill._normalize_name(uncleaned_name),
+                         valid_full_name)
+
 
 if __name__ == '__main__':
     unittest.main()
