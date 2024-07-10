@@ -1161,8 +1161,8 @@ class UserSettingsSkill(NeonSkill):
                 LOG.warning(f"Could not locate: {location}")
                 return None
             if not place['address'].get("city"):
-                place["address"]["city"] = place["address"].get("town") or \
-                                           place["address"].get("village")
+                LOG.warning(f"No city specified in {place['address']}")
+                place['address']['city'] = place['address'].get('county')
         except AttributeError:
             LOG.warning(f"Could not locate: {location}")
             return None
