@@ -438,7 +438,7 @@ class TestSkill(SkillTestCase):
             "also_change_location_tz", {"type": "timezone", "new": "honolulu"})
         self.skill.speak_dialog.assert_has_calls((
             call("change_location_tz",
-                 {"type": "location", "location": "Honolulu"}, private=True),
+                 {"type": "location", "location": "Honolulu County"}, private=True),
             call("change_location_tz",
                  {"type": "timezone", "location": "UTC -10.0"}, private=True)),
             True)
