@@ -30,11 +30,10 @@ import re
 from datetime import datetime
 from threading import Event
 from typing import Optional, Tuple
-from adapt.intent import IntentBuilder
 from dateutil.tz import gettz
 from lingua_franca import load_language
 from lingua_franca.time import default_timezone
-from ovos_bus_client import Message
+from ovos_bus_client.message import Message
 from neon_utils.location_utils import get_timezone
 from neon_utils.skills.neon_skill import NeonSkill
 from neon_utils.user_utils import get_user_prefs, update_user_profile
@@ -48,6 +47,7 @@ from ovos_utils import classproperty
 from ovos_utils.log import LOG
 from ovos_utils.process_utils import RuntimeRequirements
 from ovos_workshop.decorators import intent_handler
+from ovos_workshop.intents import IntentBuilder
 from lingua_franca.parse import extract_datetime
 
 
