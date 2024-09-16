@@ -42,7 +42,6 @@ from neon_utils.parse_utils import validate_email
 from lingua_franca.parse import extract_langcode, get_full_lang_code
 from lingua_franca.format import pronounce_lang
 from lingua_franca.internal import UnsupportedLanguageError
-from ovos_utils.file_utils import read_vocab_file
 from ovos_utils import classproperty
 from ovos_utils.log import LOG
 from ovos_utils.process_utils import RuntimeRequirements
@@ -597,8 +596,9 @@ class UserSettingsSkill(NeonSkill):
         LOG.debug(extracted)
         email_addr: str = extracted.split()[0] + \
                           message.data.get("utterance").rsplit(extracted.split()[0])[1]
-        dot = read_vocab_file(self.find_resource("dot.voc", 'vocab'))[0][0]
-        at = read_vocab_file(self.find_resource("at.voc", 'vocab'))[0][0]
+
+        dot = self.resources.load_vocabulary_file("dot.voc")[0][0]
+        at = self.resources.load_vocabulary_file("at.voc")[0][0]
         email_words = email_addr.split()
         if dot in email_words:
             email_words[email_words.index(dot)] = "."
@@ -1071,7 +1071,7 @@ class UserSettingsSkill(NeonSkill):
 
         code = None
         # Manually specified languages take priority
-        request_overrides = self.translate_namedvalues("languages.value")
+        request_overrides = self.resources.load_named_value_file("languages.value")
         for lang, c in request_overrides.items():
             if lang in request.lower().split():
                 code = c
