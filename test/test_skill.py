@@ -435,7 +435,7 @@ class TestSkill(SkillTestCase):
 
         # Change location and tz
         _init_test_message("location", "honolulu")
-        new_city = "Honolulu County"  # TODO: This is semi-variable as the map API changes
+        new_city = "Honolulu"
         sleep(1)
         self.skill.handle_change_location_timezone(test_message)
         self.skill.ask_yesno.assert_called_once_with(

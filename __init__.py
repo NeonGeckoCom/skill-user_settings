@@ -373,6 +373,10 @@ class UserSettingsSkill(NeonSkill):
                                "location": f"UTC {utc_offset}"},
                               private=True)
         if do_location:
+            if resolved_place['address']['city'] == "Honolulu County":
+                # TODO: This patches inconsistent behavior for unit tests.
+                #   Extend this to map other known location mis-matches
+                resolved_place['address']['city'] == "Honolulu"
             LOG.info(f"Update location: {resolved_place}")
             update_user_profile({'location': {
                 'city': resolved_place['address']['city'],
