@@ -329,7 +329,7 @@ uk-ua:
     - говори зі мною польською мовою:
         - request_language: польською
   SetMyLanguage:
-    - моя бажана мова українська:
+    - моя бажана мова це українська:
         - language
         - preferred
         - rx_language: українська
