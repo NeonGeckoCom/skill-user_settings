@@ -336,9 +336,6 @@ uk-ua:
     - зміни мою мову на англійську:
         - language
         - rx_language: англійську
-    - update my language setting to slovenian:
-        - language
-        - rx_language: slovenian
     - зміни мою бажану мову на польську:
         - language
         - preferred
