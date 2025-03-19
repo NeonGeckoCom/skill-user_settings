@@ -1023,7 +1023,7 @@ class UserSettingsSkill(NeonSkill):
             message.forward("skill-ovos-weather.openvoiceos.weather.request"))
 
     def _parse_languages(self, utterance: str) -> \
-            (Optional[str], Optional[str]):
+            Tuple[Optional[str], Optional[str]]:
         """
         Parse a language change request for primary and secondary languages
         :param utterance: raw utterance spoken by the user
@@ -1065,7 +1065,7 @@ class UserSettingsSkill(NeonSkill):
 
         return primary, secondary
 
-    def _get_lang_code_and_name(self, request: str) -> (str, str):
+    def _get_lang_code_and_name(self, request: str) -> Tuple[str, str]:
         """
         Extract the lang code and pronounceable name from a requested language
         :param request: user requested language
@@ -1174,6 +1174,13 @@ class UserSettingsSkill(NeonSkill):
             if not place or not place.get("address"):
                 LOG.warning(f"Could not locate: {location}")
                 return None
+            if not place['address'].get("city"):
+                # TODO: Delegate this to `get_full_location`
+                LOG.warning(f"No city specified in {place['address']}")
+                place['address']['city'] = place["address"].get("town") or \
+                    place["address"].get("village") or \
+                    place["address"].get("hamlet") or \
+                    place['address'].get('county')
         except AttributeError:
             LOG.warning(f"Could not locate: {location}")
             return None
