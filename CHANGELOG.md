@@ -1,28 +1,72 @@
 # Changelog
 
-## [1.0.5a3](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.5a3) (2024-04-10)
+## [1.0.6a8](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.6a8) (2025-03-19)
 
-[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.5a2...1.0.5a3)
-
-**Merged pull requests:**
-
-- Update test dependency and fix docstring [\#109](https://github.com/NeonGeckoCom/skill-user_settings/pull/109) ([NeonDaniel](https://github.com/NeonDaniel))
-
-## [1.0.5a2](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.5a2) (2024-02-05)
-
-[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.5a1...1.0.5a2)
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.6a7...1.0.6a8)
 
 **Merged pull requests:**
 
-- Support ovos-utils 0.1 [\#107](https://github.com/NeonGeckoCom/skill-user_settings/pull/107) ([NeonDaniel](https://github.com/NeonDaniel))
+- Cleanup changes to prep for release [\#120](https://github.com/NeonGeckoCom/skill-user_settings/pull/120) ([NeonDaniel](https://github.com/NeonDaniel))
 
-## [1.0.5a1](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.5a1) (2024-01-15)
+## [1.0.6a7](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.6a7) (2025-03-11)
 
-[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.4...1.0.5a1)
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.6a6...1.0.6a7)
 
 **Merged pull requests:**
 
-- Update test dependencies and test case to resolve failures [\#106](https://github.com/NeonGeckoCom/skill-user_settings/pull/106) ([NeonDaniel](https://github.com/NeonDaniel))
+- Update automation, gitignore, and license notices [\#119](https://github.com/NeonGeckoCom/skill-user_settings/pull/119) ([NeonDaniel](https://github.com/NeonDaniel))
+
+## [1.0.6a6](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.6a6) (2024-10-31)
+
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.6a5...1.0.6a6)
+
+**Merged pull requests:**
+
+- Update UK translation [\#118](https://github.com/NeonGeckoCom/skill-user_settings/pull/118) ([NeonDaniel](https://github.com/NeonDaniel))
+
+## [1.0.6a5](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.6a5) (2024-09-17)
+
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.6a4...1.0.6a5)
+
+**Merged pull requests:**
+
+- Update OVOS depdendencies for 0.x compat [\#117](https://github.com/NeonGeckoCom/skill-user_settings/pull/117) ([NeonDaniel](https://github.com/NeonDaniel))
+
+## [1.0.6a4](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.6a4) (2024-07-10)
+
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.6a3...1.0.6a4)
+
+**Fixed bugs:**
+
+- \[BUG\] ngi\_user\_info.yml not updating correctly [\#114](https://github.com/NeonGeckoCom/skill-user_settings/issues/114)
+
+**Merged pull requests:**
+
+- Improved input utterance parsing [\#115](https://github.com/NeonGeckoCom/skill-user_settings/pull/115) ([NeonDaniel](https://github.com/NeonDaniel))
+
+## [1.0.6a3](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.6a3) (2024-07-10)
+
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.6a2...1.0.6a3)
+
+**Merged pull requests:**
+
+- Remove deprecated references [\#116](https://github.com/NeonGeckoCom/skill-user_settings/pull/116) ([NeonDaniel](https://github.com/NeonDaniel))
+
+## [1.0.6a2](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.6a2) (2024-07-05)
+
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.6a1...1.0.6a2)
+
+**Merged pull requests:**
+
+- Ukrainian Translation [\#113](https://github.com/NeonGeckoCom/skill-user_settings/pull/113) ([NeonDaniel](https://github.com/NeonDaniel))
+
+## [1.0.6a1](https://github.com/NeonGeckoCom/skill-user_settings/tree/1.0.6a1) (2024-05-10)
+
+[Full Changelog](https://github.com/NeonGeckoCom/skill-user_settings/compare/1.0.5...1.0.6a1)
+
+**Merged pull requests:**
+
+- Remove `mycroft` imports [\#111](https://github.com/NeonGeckoCom/skill-user_settings/pull/111) ([NeonDaniel](https://github.com/NeonDaniel))
 
 
 
