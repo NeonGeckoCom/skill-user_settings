@@ -1023,7 +1023,7 @@ class UserSettingsSkill(NeonSkill):
             message.forward("skill-ovos-weather.openvoiceos.weather.request"))
 
     def _parse_languages(self, utterance: str) -> \
-            (Optional[str], Optional[str]):
+            Tuple[Optional[str], Optional[str]]:
         """
         Parse a language change request for primary and secondary languages
         :param utterance: raw utterance spoken by the user
@@ -1065,7 +1065,7 @@ class UserSettingsSkill(NeonSkill):
 
         return primary, secondary
 
-    def _get_lang_code_and_name(self, request: str) -> (str, str):
+    def _get_lang_code_and_name(self, request: str) -> Tuple[str, str]:
         """
         Extract the lang code and pronounceable name from a requested language
         :param request: user requested language

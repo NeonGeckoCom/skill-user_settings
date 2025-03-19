@@ -17,7 +17,7 @@ jobs:
     uses: neongeckocom/.github/.github/workflows/skill_test_intents.yml@master
     with:
       timeout: 15
-      # TODO: Diagnose failures with ovos-core>0.1
+      # Skip OVOS tests as OVOS doesn't implement compatible user configuration
       ovos_versions: '[]'
   skill_resource_tests:
     uses: neongeckocom/.github/.github/workflows/skill_test_resources.yml@master
