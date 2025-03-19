@@ -10,10 +10,15 @@ jobs:
     uses: neongeckocom/.github/.github/workflows/python_build_tests.yml@master
   skill_unit_tests:
     uses: neongeckocom/.github/.github/workflows/skill_tests.yml@master
+    with:
+      # Skip OVOS tests as OVOS doesn't implement compatible user configuration
+      ovos_versions: '[]'
   skill_intent_tests:
     uses: neongeckocom/.github/.github/workflows/skill_test_intents.yml@master
     with:
       timeout: 15
+      # Skip OVOS tests as OVOS doesn't implement compatible user configuration
+      ovos_versions: '[]'
   skill_resource_tests:
     uses: neongeckocom/.github/.github/workflows/skill_test_resources.yml@master
   skill_install_tests:

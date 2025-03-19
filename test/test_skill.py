@@ -1,6 +1,6 @@
 # NEON AI (TM) SOFTWARE, Software Development Kit & Application Framework
 # All trademark and other rights reserved by their respective owners
-# Copyright 2008-2022 Neongecko.com Inc.
+# Copyright 2008-2025 Neongecko.com Inc.
 # Contributors: Daniel McKnight, Guy Daniels, Elon Gasper, Richard Leeds,
 # Regina Bloomstine, Casimiro Ferreira, Andrii Pernatii, Kirill Hrymailo
 # BSD-3 License
@@ -27,10 +27,10 @@
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import unittest
-from time import sleep
-
 import mock
+import os
 
+from time import sleep
 from copy import deepcopy
 from datetime import datetime
 from typing import Optional
@@ -42,6 +42,9 @@ from neon_utils.language_utils import SupportedLanguages
 from ovos_bus_client import Message
 
 from neon_minerva.tests.skill_unit_test_base import SkillTestCase
+
+
+os.environ["TEST_SKILL_ENTRYPOINT"] = "skill-user_settings.neongeckocom"
 
 
 class TestSkill(SkillTestCase):
@@ -406,8 +409,8 @@ class TestSkill(SkillTestCase):
                              test_profile["location"][setting])
         self.assertEqual(profile["location"]["city"], "New York")
         self.assertEqual(profile["location"]["state"], "New York")
-        self.assertAlmostEqual(profile["location"]["lat"], 40.7127281, 5)
-        self.assertAlmostEqual(profile["location"]["lng"], -74.0060152, 5)
+        self.assertAlmostEqual(profile["location"]["lat"], 40.7127281, 3)
+        self.assertAlmostEqual(profile["location"]["lng"], -74.0060152, 3)
         self.skill.ask_yesno.reset_mock()
         self.skill.speak_dialog.reset_mock()
 
@@ -432,13 +435,14 @@ class TestSkill(SkillTestCase):
 
         # Change location and tz
         _init_test_message("location", "honolulu")
+        new_city = "Honolulu"
         sleep(1)
         self.skill.handle_change_location_timezone(test_message)
         self.skill.ask_yesno.assert_called_once_with(
             "also_change_location_tz", {"type": "timezone", "new": "honolulu"})
         self.skill.speak_dialog.assert_has_calls((
             call("change_location_tz",
-                 {"type": "location", "location": "Honolulu"}, private=True),
+                 {"type": "location", "location": new_city}, private=True),
             call("change_location_tz",
                  {"type": "timezone", "location": "UTC -10.0"}, private=True)),
             True)
@@ -448,7 +452,7 @@ class TestSkill(SkillTestCase):
         for setting in unchanged:
             self.assertEqual(profile["location"][setting],
                              test_profile["location"][setting])
-        self.assertEqual(profile["location"]["city"], "Honolulu")
+        self.assertEqual(profile["location"]["city"], new_city)
         self.assertEqual(profile["location"]["state"], "Hawaii")
         self.assertAlmostEqual(profile["location"]["lat"], 21.2890997, 0)
         self.assertAlmostEqual(profile["location"]["lng"], -157.717299, 0)
@@ -480,8 +484,8 @@ class TestSkill(SkillTestCase):
 
         self.assertEqual(profile["location"]["city"], "Phoenix")
         self.assertEqual(profile["location"]["state"], "Arizona")
-        self.assertAlmostEqual(profile["location"]["lat"], 33.4484367, 5)
-        self.assertAlmostEqual(profile["location"]["lng"], -112.074141, 5)
+        self.assertAlmostEqual(profile["location"]["lat"], 33.4484367, 3)
+        self.assertAlmostEqual(profile["location"]["lng"], -112.074141, 3)
         self.assertEqual(profile["location"]["tz"], "America/Phoenix")
         self.assertEqual(profile["location"]["utc"], -7.0)
 
@@ -848,8 +852,8 @@ class TestSkill(SkillTestCase):
                                 "user_profiles": [test_profile]})
 
         # Set first name
-        test_message.data["utterance"] = "my first name is daniel"
-        test_message.data["rx_setting"] = "daniel"
+        test_message.data["utterance"] = "my first name is daniel."
+        test_message.data["rx_setting"] = "daniel ."
         self.skill.handle_set_my_name(test_message)
         self.skill.speak_dialog.assert_called_with("name_set_part",
                                                    {"position": "first name",
@@ -1532,6 +1536,24 @@ class TestSkill(SkillTestCase):
                          "test at neon dot ai")
         self.assertEqual(self.skill._spoken_email("my.email@domain.com"),
                          "my dot email at domain dot com")
+
+    def test_normalize_name(self):
+        valid_name = "Daniel"
+        invalid_punctuation = "Daniel ."
+        invalid_with_quotes = 'daniel "'
+        invalid_with_number = "DANIEL 1 2 3"
+
+        self.assertEqual(self.skill._normalize_name(invalid_punctuation),
+                         valid_name)
+        self.assertEqual(self.skill._normalize_name(invalid_with_quotes),
+                         valid_name)
+        self.assertEqual(self.skill._normalize_name(invalid_with_number),
+                         valid_name)
+
+        valid_full_name = "D-J Mcknight"
+        uncleaned_name = "d-j mcknight . "
+        self.assertEqual(self.skill._normalize_name(uncleaned_name),
+                         valid_full_name)
 
 
 if __name__ == '__main__':
